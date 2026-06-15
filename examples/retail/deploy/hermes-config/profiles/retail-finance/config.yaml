@@ -1,0 +1,8 @@
+model:
+  provider: custom
+  model: kimi-k2-6
+  base_url: http://maas.apps.ocp.cloud.rhai-tmm.dev/prelude-maas/kimi-k2-6/v1
+  api_key: "${OPENAI_API_KEY}"
+mcp_servers:
+  retail-finance:
+    url: http://retail-finance-mcp.openshell.svc.cluster.local:9090/mcp

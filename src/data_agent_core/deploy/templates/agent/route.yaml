@@ -1,0 +1,18 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: ${DOMAIN_NAME}-agent
+  namespace: ${NAMESPACE}
+  labels:
+    app: ${DOMAIN_NAME}-agent
+  annotations:
+    haproxy.router.openshift.io/timeout: "${ROUTE_TIMEOUT}"
+spec:
+  to:
+    kind: Service
+    name: ${DOMAIN_NAME}-agent
+  port:
+    targetPort: 8080
+  tls:
+    termination: ${ROUTE_TLS_TERMINATION}
+    insecureEdgeTerminationPolicy: Redirect

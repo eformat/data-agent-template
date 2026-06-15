@@ -1,0 +1,42 @@
+.PHONY: build deploy-all deploy-agent deploy-mcp deploy-common set-model register-prompt load-data test eval-compile eval-submit eval-status
+
+NAMESPACE ?= ${NAMESPACE}
+DOMAIN ?= ${DOMAIN_NAME}
+
+build:
+	oc -n $$(NAMESPACE) start-build $$(DOMAIN)-agent --from-dir=agents/$$(DOMAIN)-agent/ --follow
+	oc -n $$(NAMESPACE) start-build $$(DOMAIN)-mcp-server --from-dir=agents/$$(DOMAIN)-mcp-server/ --follow
+
+deploy-all:
+	bash scripts/deploy-all.sh
+
+deploy-common:
+	oc apply -k deploy/
+
+deploy-agent:
+	oc apply -k agents/$$(DOMAIN)-agent/deploy/
+
+deploy-mcp:
+	oc apply -k agents/$$(DOMAIN)-mcp-server/deploy/
+
+set-model:
+	@test -n "$$(AGENT_MODEL)" || (echo "Usage: make set-model AGENT_MODEL=<name> AGENT_ENDPOINT=<url>"; exit 1)
+	bash scripts/set-model.sh "$$(AGENT_MODEL)" "$$(AGENT_ENDPOINT)"
+
+register-prompt:
+	bash scripts/register-prompt.sh "$$(PROMPT_MSG)"
+
+load-data:
+	bash scripts/load-data.sh
+
+test:
+	data-agent test
+
+eval-compile:
+	python evaluations/pipeline.py --compile
+
+eval-submit:
+	bash scripts/eval-submit.sh
+
+eval-status:
+	bash scripts/eval-status.sh

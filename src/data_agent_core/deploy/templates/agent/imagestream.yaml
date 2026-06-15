@@ -1,0 +1,10 @@
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: ${DOMAIN_NAME}-agent
+  namespace: ${NAMESPACE}
+  labels:
+    app: ${DOMAIN_NAME}-agent
+spec:
+  lookupPolicy:
+    local: true

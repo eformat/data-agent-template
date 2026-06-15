@@ -1,0 +1,114 @@
+domain:
+  name: mlb
+  display_name: "MLB Baseball Agent"
+  description: "Major League Baseball data research assistant with access to the Lahman Baseball Database, NOAA weather data, and Statcast pitch data via a Trino Iceberg lakehouse."
+
+data:
+  trino_catalog: lakehouse
+  trino_schema: mlb
+  datasets:
+    - name: batting
+      formal_name: "Batting Statistics"
+      category: performance
+      years_available: "1871-2025"
+      description: "Season batting statistics"
+      aliases:
+        hitting: batting
+        offense: batting
+    - name: pitching
+      formal_name: "Pitching Statistics"
+      category: performance
+      years_available: "1871-2025"
+      description: "Season pitching statistics"
+      aliases:
+        throwing: pitching
+    - name: fielding
+      formal_name: "Fielding Statistics"
+      category: performance
+      years_available: "1871-2025"
+      description: "Season fielding statistics"
+      aliases:
+        defense: fielding
+    - name: teams
+      formal_name: "Team Statistics"
+      category: team
+      years_available: "1871-2025"
+      description: "Team-level season statistics"
+    - name: weather
+      formal_name: "NOAA Weather"
+      category: environmental
+      years_available: "2000-2019"
+      description: "Daily weather observations near ballparks"
+
+  aliases:
+    hitting: batting
+    offense: batting
+    throwing: pitching
+    defense: fielding
+    "the yankees": teams
+    "home runs": batting
+
+  formal_names:
+    batting: "Batting Statistics (Lahman)"
+    pitching: "Pitching Statistics (Lahman)"
+    fielding: "Fielding Statistics (Lahman)"
+    teams: "Team Statistics (Lahman)"
+    weather: "NOAA Weather Data"
+
+enrichment:
+  geographic_resolution: "Team/ballpark level"
+  unsupported_conclusions:
+    - "WAR calculations (not in dataset)"
+    - "Post-2016 salary data"
+    - "Post-2019 weather data"
+    - "2020-2023 pitch tracking data"
+  caveats:
+    - "Lahman Database covers 1871-2025 but early era statistics are incomplete."
+    - "ERA comparisons across eras require context (dead-ball, live-ball, etc.)."
+
+mcp:
+  dataset_source_name: "Lahman Baseball Database v2025"
+  dataset_source_url: "https://www.seanlahman.com/baseball-archive/"
+  citation_source: "Lahman Baseball Database"
+  citation_url: "https://www.seanlahman.com/baseball-archive/"
+
+mlflow:
+  experiment_name: mlb-data-agent
+  prompt_name: mlb-agent.system
+  span_name: mlb_agent
+
+starters:
+  - label: "Barry Bonds HR"
+    message: "How many home runs did Barry Bonds hit in his career?"
+  - label: "World Series winners"
+    message: "Which team won the most World Series titles?"
+  - label: "Pitching ERA leaders"
+    message: "Who had the best ERA in 2024?"
+
+eval:
+  seed_questions:
+    - question: "How many home runs did Barry Bonds hit in his career?"
+      expected_tools: [query_trino]
+      expected_keywords: [Bonds, home runs]
+      question_type: data_retrieval
+    - question: "Compare Babe Ruth and Hank Aaron's career batting statistics"
+      expected_tools: [query_trino]
+      expected_keywords: [Ruth, Aaron]
+      question_type: cross_dataset
+    - question: "What was Mike Trout's WAR in 2019?"
+      expected_tools: []
+      expected_keywords: [WAR, not available]
+      question_type: scope_boundary
+
+deployment:
+  namespace: mlb
+  model_name: kimi-k2-6
+  model_endpoint: http://maas.apps.ocp.cloud.rhai-tmm.dev/prelude-maas/kimi-k2-6/v1
+  trino_host: trino.trino.svc.cluster.local
+  trino_port: 8443
+  mlflow_tracking_uri: https://mlflow.redhat-ods-applications.svc:8443/mlflow
+  mlflow_workspace: mlb
+  s3_endpoint: http://minio.minio.svc.cluster.local:9000
+  s3_bucket: mlb-data
+
+system_prompt_file: system_prompt.md

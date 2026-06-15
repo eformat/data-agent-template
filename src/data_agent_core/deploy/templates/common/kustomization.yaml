@@ -1,0 +1,8 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - maas-key-secret.yaml
+  - pipeline-s3-secret.yaml
+  - chainlit-secret.yaml
+  - mlflow-rbac.yaml
+  - dspa.yaml

@@ -1,0 +1,17 @@
+apiVersion: datasciencepipelinesapplications.opendatahub.io/v1
+kind: DataSciencePipelinesApplication
+metadata:
+  name: dspa
+  namespace: ${NAMESPACE}
+spec:
+  dspVersion: v2
+  objectStorage:
+    externalStorage:
+      bucket: pipeline-artifacts
+      host: ${S3_ENDPOINT_HOST}
+      port: ""
+      scheme: http
+      s3CredentialsSecret:
+        secretName: ${DOMAIN_NAME}-pipeline-s3
+        accessKey: AWS_ACCESS_KEY_ID
+        secretKey: AWS_SECRET_ACCESS_KEY

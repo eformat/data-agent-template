@@ -1,0 +1,5 @@
+[console_scripts]
+data-agent = data_agent_core.cli:main
+
+[pytest11]
+data_agent_core = data_agent_core.testing.plugin

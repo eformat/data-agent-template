@@ -1,0 +1,69 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "data-agent-core"
+version = "0.1.0"
+description = "Framework for building methodology-aware data agents on Trino/Iceberg with structured reasoning, MLflow tracing, and 7-dimension evaluation."
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic>=2.0",
+    "pyyaml>=6.0",
+    "click>=8.0",
+    "duckdb>=1.0",
+]
+
+[project.optional-dependencies]
+agent = [
+    "chainlit>=2.6",
+    "aiosqlite>=0.20",
+    "langchain>=0.3",
+    "langchain-openai>=0.3",
+    "langchain-core>=0.3",
+    "langgraph>=0.4",
+    "mlflow>=3.10",
+    "trino>=0.329",
+    "authzed",
+]
+mcp = [
+    "fastmcp>=2.0",
+    "trino>=0.329",
+    "authzed",
+    "grpcio>=1.60",
+]
+eval = [
+    "mlflow>=3.10",
+    "kfp>=2.0",
+    "kfp-kubernetes>=1.0",
+    "langchain>=0.3",
+    "langchain-openai>=0.3",
+    "langchain-core>=0.3",
+    "langgraph>=0.4",
+    "trino>=0.329",
+]
+dev = [
+    "pytest>=8.0",
+    "duckdb>=1.0",
+]
+all = ["data-agent-core[agent,mcp,eval,dev]"]
+
+[project.entry-points.pytest11]
+data_agent_core = "data_agent_core.testing.plugin"
+
+[project.scripts]
+data-agent = "data_agent_core.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+data_agent_core = [
+    "deploy/templates/**/*.yaml",
+    "deploy/templates/**/*.sh",
+    "deploy/templates/*.template",
+    "deploy/templates/Containerfile.*",
+    "prompts/*.md",
+]

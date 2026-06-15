@@ -1,0 +1,14 @@
+# build
+FROM registry.access.redhat.com/ubi9/python-312:latest AS builder
+USER 0
+ADD . /tmp/src
+RUN /usr/bin/fix-permissions /tmp/src
+USER 1001
+RUN /usr/libexec/s2i/assemble
+
+# deploy
+FROM registry.access.redhat.com/ubi9/python-312-minimal:latest
+COPY --from=builder /opt/app-root /opt/app-root
+USER 1001
+EXPOSE 9090
+CMD ["python", "server.py"]

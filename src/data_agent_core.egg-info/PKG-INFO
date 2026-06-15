@@ -1,0 +1,113 @@
+Metadata-Version: 2.4
+Name: data-agent-core
+Version: 0.1.0
+Summary: Framework for building methodology-aware data agents on Trino/Iceberg with structured reasoning, MLflow tracing, and 7-dimension evaluation.
+License-Expression: Apache-2.0
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+Requires-Dist: pydantic>=2.0
+Requires-Dist: pyyaml>=6.0
+Requires-Dist: click>=8.0
+Requires-Dist: duckdb>=1.0
+Provides-Extra: agent
+Requires-Dist: chainlit>=2.6; extra == "agent"
+Requires-Dist: aiosqlite>=0.20; extra == "agent"
+Requires-Dist: langchain>=0.3; extra == "agent"
+Requires-Dist: langchain-openai>=0.3; extra == "agent"
+Requires-Dist: langchain-core>=0.3; extra == "agent"
+Requires-Dist: langgraph>=0.4; extra == "agent"
+Requires-Dist: mlflow>=3.10; extra == "agent"
+Requires-Dist: trino>=0.329; extra == "agent"
+Requires-Dist: authzed; extra == "agent"
+Provides-Extra: mcp
+Requires-Dist: fastmcp>=2.0; extra == "mcp"
+Requires-Dist: trino>=0.329; extra == "mcp"
+Provides-Extra: eval
+Requires-Dist: mlflow>=3.10; extra == "eval"
+Requires-Dist: kfp>=2.0; extra == "eval"
+Requires-Dist: kfp-kubernetes>=1.0; extra == "eval"
+Requires-Dist: langchain>=0.3; extra == "eval"
+Requires-Dist: langchain-openai>=0.3; extra == "eval"
+Requires-Dist: langchain-core>=0.3; extra == "eval"
+Requires-Dist: langgraph>=0.4; extra == "eval"
+Requires-Dist: trino>=0.329; extra == "eval"
+Provides-Extra: dev
+Requires-Dist: pytest>=8.0; extra == "dev"
+Requires-Dist: duckdb>=1.0; extra == "dev"
+Provides-Extra: all
+Requires-Dist: data-agent-core[agent,dev,eval,mcp]; extra == "all"
+
+# data-agent-core
+
+Framework for building methodology-aware data agents on Trino/Iceberg with structured reasoning, MLflow tracing, and 7-dimension evaluation.
+
+## What This Is
+
+A pip-installable Python package that extracts the shared architecture from two production data agents (MLB and NNDSS) into reusable factory functions. Domain projects are thin — they import shared code and configure it via a single `agent-config.yaml`.
+
+**Key innovations preserved:**
+- **MCP enrichment contract** — every tool response includes methodology, caveats, supported/unsupported conclusions
+- **Reasoning rubric injector** — 6-step `<reasoning>` block with deterministic confidence cards (HIGH/MODERATE/LOW from tool trace)
+- **7-dimension capability evaluation** — cross_dataset_reasoning, methodology_awareness, scope_adherence, causal_inference_boundaries, geographic_resolution, terminology_fluency, confidence_calibration
+
+## Quick Start
+
+```bash
+# Install
+pip install -e ".[all]"
+
+# Scaffold a new domain agent
+data-agent init my-domain
+
+# Configure
+cd my-domain
+# Edit agent-config.yaml, system_prompt.md, add data files
+
+# Validate
+data-agent validate
+
+# Run tests
+data-agent test
+
+# Build and deploy
+make build && make push && make deploy-all
+```
+
+## Architecture
+
+```
+data-agent-core (pip package)
+├── config/       — Pydantic v2 DomainConfig + YAML loader
+├── agent/        — Chainlit + LangGraph lifecycle (create_agent_app)
+├── tools/        — Tool factories (query_trino, describe_datasets, etc.)
+├── mcp/          — FastMCP server factory (create_mcp_server)
+├── mlflow/       — MLflow init, CA bundle, autolog
+├── prompts/      — System prompt registry with MLflow integration
+├── eval/         — KFP pipeline, 4+7 scorers, predictor function
+├── testing/      — pytest fixtures (mock_trino, mock_spicedb)
+└── deploy/       — Containerfile and kustomize templates
+```
+
+## Generated Project Structure
+
+```
+my-domain/
+├── agent-config.yaml              # THE config file
+├── system_prompt.md               # Domain reasoning prompt
+├── agents/my-domain-agent/app.py  # ~10 lines
+├── agents/my-domain-mcp-server/   # ~10 lines
+├── evaluations/                   # KFP pipeline + seed questions
+├── tests/                         # Hermetic tests
+├── data/                          # Your parquet/CSV files
+└── Makefile                       # build, push, deploy
+```
+
+## Examples
+
+See `examples/nndss/` and `examples/mlb/` for complete domain configurations.
+
+## Documentation
+
+- [Architecture](docs/architecture.md) — component diagram, data flow, design decisions
+- [Evaluation Methodology](docs/evaluation-methodology.md) — 7 capability dimensions, scorer types
+- [Reasoning Protocol](docs/reasoning-protocol.md) — 6-step protocol, confidence card rules

@@ -1,0 +1,19 @@
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: ${DOMAIN_NAME}-mcp-server
+  namespace: ${NAMESPACE}
+  labels:
+    app: ${DOMAIN_NAME}-mcp-server
+spec:
+  output:
+    to:
+      kind: ImageStreamTag
+      name: ${DOMAIN_NAME}-mcp-server:latest
+  source:
+    type: Binary
+  strategy:
+    type: Docker
+    dockerStrategy:
+      dockerfilePath: Containerfile
+  triggers: []

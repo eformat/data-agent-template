@@ -1,0 +1,19 @@
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: ${DOMAIN_NAME}-agent
+  namespace: ${NAMESPACE}
+  labels:
+    app: ${DOMAIN_NAME}-agent
+spec:
+  output:
+    to:
+      kind: ImageStreamTag
+      name: ${DOMAIN_NAME}-agent:latest
+  source:
+    type: Binary
+  strategy:
+    type: Docker
+    dockerStrategy:
+      dockerfilePath: Containerfile
+  triggers: []

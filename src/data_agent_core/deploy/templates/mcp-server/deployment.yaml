@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ${DOMAIN_NAME}-mcp-server
+  namespace: ${NAMESPACE}
+  labels:
+    app: ${DOMAIN_NAME}-mcp-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ${DOMAIN_NAME}-mcp-server
+  template:
+    metadata:
+      labels:
+        app: ${DOMAIN_NAME}-mcp-server
+    spec:
+      containers:
+        - name: mcp-server
+          image: image-registry.openshift-image-registry.svc:5000/${NAMESPACE}/${DOMAIN_NAME}-mcp-server:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 9090
+              protocol: TCP
+          env:
+            - name: S3_ENDPOINT
+              value: "${S3_ENDPOINT}"
+            - name: S3_BUCKET
+              value: "${S3_BUCKET}"
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: ${DOMAIN_NAME}-pipeline-s3
+                  key: AWS_ACCESS_KEY_ID
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: ${DOMAIN_NAME}-pipeline-s3
+                  key: AWS_SECRET_ACCESS_KEY
+          resources:
+            requests:
+              cpu: "${MCP_CPU_REQUEST}"
+              memory: "${MCP_MEMORY_REQUEST}"
+            limits:
+              cpu: "${MCP_CPU_LIMIT}"
+              memory: "${MCP_MEMORY_LIMIT}"
+          livenessProbe:
+            tcpSocket:
+              port: 9090
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            tcpSocket:
+              port: 9090
+            initialDelaySeconds: 5
+            periodSeconds: 5

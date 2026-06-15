@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: ${DOMAIN_NAME}-mcp-server
+  namespace: ${NAMESPACE}
+  labels:
+    app: ${DOMAIN_NAME}-mcp-server
+spec:
+  type: ClusterIP
+  ports:
+    - port: 9090
+      targetPort: 9090
+      protocol: TCP
+  selector:
+    app: ${DOMAIN_NAME}-mcp-server

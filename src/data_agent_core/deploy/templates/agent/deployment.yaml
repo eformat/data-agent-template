@@ -1,0 +1,79 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ${DOMAIN_NAME}-agent
+  namespace: ${NAMESPACE}
+  labels:
+    app: ${DOMAIN_NAME}-agent
+spec:
+  replicas: ${REPLICAS}
+  selector:
+    matchLabels:
+      app: ${DOMAIN_NAME}-agent
+  template:
+    metadata:
+      labels:
+        app: ${DOMAIN_NAME}-agent
+    spec:
+      containers:
+        - name: agent
+          image: image-registry.openshift-image-registry.svc:5000/${NAMESPACE}/${DOMAIN_NAME}-agent:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+          env:
+            - name: MODEL_NAME
+              value: "${MODEL_NAME}"
+            - name: MODEL_ENDPOINT
+              value: "${MODEL_ENDPOINT}"
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: ${DOMAIN_NAME}-maas-key
+                  key: OPENAI_API_KEY
+            - name: TRINO_QUERY_HOST
+              value: "${TRINO_HOST}"
+            - name: TRINO_QUERY_PORT
+              value: "${TRINO_PORT}"
+            - name: MLFLOW_TRACKING_URI
+              value: "${MLFLOW_TRACKING_URI}"
+            - name: MLFLOW_WORKSPACE
+              value: "${MLFLOW_WORKSPACE}"
+            - name: MLFLOW_EXPERIMENT_NAME
+              value: "${MLFLOW_EXPERIMENT_NAME}"
+            - name: CHAINLIT_DB_PATH
+              value: /app/data/chainlit.db
+            - name: AUTH_USERNAME
+              value: admin
+            - name: AUTH_PASSWORD
+              value: admin
+            - name: CHAINLIT_AUTH_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: ${DOMAIN_NAME}-chainlit-secret
+                  key: CHAINLIT_AUTH_SECRET
+          resources:
+            requests:
+              cpu: "${AGENT_CPU_REQUEST}"
+              memory: "${AGENT_MEMORY_REQUEST}"
+            limits:
+              cpu: "${AGENT_CPU_LIMIT}"
+              memory: "${AGENT_MEMORY_LIMIT}"
+          livenessProbe:
+            tcpSocket:
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          readinessProbe:
+            tcpSocket:
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          volumeMounts:
+            - name: chainlit-data
+              mountPath: /app/data
+      volumes:
+        - name: chainlit-data
+          persistentVolumeClaim:
+            claimName: ${DOMAIN_NAME}-chainlit-data

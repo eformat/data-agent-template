@@ -1,1 +1,246 @@
-# data-agent-template
+# data-agent-core
+
+A pip-installable Python framework for building methodology-aware data agents on Trino/Iceberg with structured reasoning, MLflow tracing, and 7-dimension evaluation.
+
+Extracted from two production agents (MLB baseball and NNDSS Australian disease surveillance). Domain projects are thin — import shared code, configure via `agent-config.yaml`.
+
+## Quick Start
+
+```bash
+# Create venv and install
+python3.12 -m venv venv && source venv/bin/activate
+pip install -e ".[all]"
+
+# Scaffold a new domain agent
+data-agent init my-domain
+cd my-domain
+
+# Edit agent-config.yaml with your domain data
+# Write your system_prompt.md
+# Add data files to data/
+
+# Validate config
+data-agent validate
+
+# Run locally with DuckDB (no cluster needed)
+export MODEL_ENDPOINT="https://your-llm-endpoint/v1"
+export MODEL_NAME="your-model"
+export OPENAI_API_KEY="your-key"
+data-agent dev
+
+# Run against real Trino + SpiceDB (port-forward first)
+data-agent dev --trino-live
+
+# Run tests
+make test
+```
+
+## What You Get
+
+When you run `data-agent init my-domain`, you get a complete project:
+
+```
+my-domain/
+├── agent-config.yaml                    # Central configuration
+├── system_prompt.md                     # Domain reasoning prompt
+├── Makefile                             # build, deploy, set-model, eval
+│
+├── agents/my-domain-agent/
+│   ├── app.py                           # ~10 lines (imports + create_agent_app)
+│   ├── Containerfile                    # UBI 9 two-stage build
+│   ├── requirements.txt
+│   └── deploy/                          # Kustomize manifests
+│       ├── deployment.yaml              # Deployment + env vars + probes
+│       ├── service.yaml                 # ClusterIP port 8080
+│       ├── route.yaml                   # OpenShift Route (edge TLS)
+│       ├── chainlit-pvc.yaml            # 2Gi chat history
+│       ├── buildconfig.yaml             # OpenShift binary build
+│       ├── imagestream.yaml             # Internal registry
+│       └── kustomization.yaml
+│
+├── agents/my-domain-mcp-server/
+│   ├── server.py                        # ~10 lines
+│   ├── Containerfile
+│   └── deploy/                          # Kustomize manifests
+│
+├── deploy/                              # Common resources
+│   ├── maas-key-secret.yaml             # LLM API key (placeholder)
+│   ├── pipeline-s3-secret.yaml          # S3 credentials (placeholder)
+│   ├── chainlit-secret.yaml             # JWT auth secret
+│   ├── mlflow-rbac.yaml                 # MLflow RoleBindings
+│   ├── dspa.yaml                        # Data Science Pipelines CR
+│   └── kustomization.yaml
+│
+├── evaluations/
+│   ├── pipeline.py                      # KFP pipeline factory
+│   └── seed_questions.yaml
+│
+├── scripts/
+│   ├── deploy-all.sh                    # Full deployment orchestration
+│   ├── set-model.sh                     # Switch LLM model on deployment
+│   └── register-prompt.sh              # Register prompt in MLflow
+│
+├── tests/
+│   ├── conftest.py                      # Auto-registered fixtures
+│   └── test_tools.py
+│
+└── data/                                # Your parquet/CSV files
+```
+
+## CLI Commands
+
+| Command | Description |
+|---------|-------------|
+| `data-agent init <name>` | Scaffold a new domain agent project |
+| `data-agent validate` | Validate agent-config.yaml |
+| `data-agent dev` | Run locally with DuckDB + mock SpiceDB |
+| `data-agent dev --trino-live` | Run locally against real Trino + SpiceDB |
+| `data-agent test` | Run pytest |
+| `data-agent schema` | Print DomainConfig JSON Schema |
+
+## Configuration
+
+All domain-specific data goes in `agent-config.yaml`:
+
+```yaml
+domain:
+  name: my-domain
+  display_name: "My Domain Agent"
+  description: "Data agent for my domain"
+
+data:
+  trino_catalog: lakehouse
+  trino_schema: my_domain
+  datasets:
+    - name: events
+      formal_name: "Event Records"
+      years_available: "2020-2025"
+      description: "Reported events by region"
+  methodology:
+    events:
+      collection_design: "Passive reporting system"
+      case_definition: "Laboratory-confirmed cases"
+  aliases:
+    incidents: events
+
+enrichment:
+  geographic_resolution: "State/region level"
+  unsupported_conclusions:
+    - "Causal claims"
+  caveats:
+    - "Data represents reported cases only"
+
+mlflow:
+  experiment_name: my-domain-data-agent
+  prompt_name: my-domain-agent.system
+  span_name: my_domain_agent
+
+deployment:
+  namespace: my-domain
+  model_name: kimi-k2-6
+  model_endpoint: https://your-maas-endpoint/v1
+  trino_host: trino.my-domain.svc.cluster.local
+  trino_port: 8080
+  mlflow_tracking_uri: https://mlflow.redhat-ods-applications.svc:8443
+  mlflow_workspace: my-domain
+  s3_endpoint: http://minio.my-domain.svc.cluster.local:9000
+  s3_bucket: my-domain-data
+
+eval:
+  seed_questions:
+    - question: "How many events occurred in 2024?"
+      expected_tools: [query_trino]
+      expected_keywords: [events]
+      question_type: data_retrieval
+
+system_prompt_file: system_prompt.md
+```
+
+## Deploy to OpenShift
+
+```bash
+# 1. Fill in secrets (edit the placeholder values)
+vi deploy/maas-key-secret.yaml
+vi deploy/pipeline-s3-secret.yaml
+
+# 2. Full deployment
+make deploy-all
+
+# Or step by step:
+make deploy-common       # Secrets, RBAC, DSPA
+make deploy-agent        # Agent kustomize manifests
+make deploy-mcp          # MCP server kustomize manifests
+make build               # Trigger OpenShift binary builds
+```
+
+All container images use UBI 9 two-stage builds and are built in-cluster via OpenShift BuildConfig — no external registry required.
+
+## Evaluation Pipeline
+
+The framework includes a 5-step KFP evaluation pipeline:
+
+1. **setup_mlflow** — configure tracking + experiment
+2. **create_dataset** — seed questions from config
+3. **generate_variants** — SDG Hub generates 3 variants per seed (with HTTP fallback)
+4. **run_eval** — agent predictor + 11 scorers (4 deterministic + 7 LLM-as-judge)
+5. **report_results** — scorecard
+
+**11 scorers:**
+- Deterministic: `contains_expected`, `no_forbidden_content`, `confidence_card_present`, `response_adequate_length`
+- LLM judge (7 capability dimensions): `cross_dataset_reasoning`, `methodology_awareness`, `scope_adherence`, `causal_inference_boundaries`, `geographic_resolution`, `terminology_fluency`, `confidence_calibration`
+
+Compile and submit:
+```bash
+make eval-compile        # Compile to KFP YAML
+make eval-submit         # Upload + submit to DSPA
+make eval-status         # Check run status
+```
+
+## Dev Mode
+
+Dev mode runs the full Chainlit agent locally using DuckDB instead of Trino:
+
+```bash
+# DuckDB + mock SpiceDB (no cluster needed)
+data-agent dev --config agent-config.yaml
+
+# Real Trino + SpiceDB (port-forward first)
+oc port-forward svc/trino 8080:8080 &
+oc port-forward svc/dev 50051:50051 &
+data-agent dev --config agent-config.yaml --trino-live
+```
+
+Login: `admin` / `admin`
+
+## Package Structure
+
+```
+src/data_agent_core/
+├── config/       — Pydantic v2 DomainConfig + YAML loader + JSON Schema
+├── agent/        — Chainlit + LangGraph lifecycle (app.py, dev.py)
+├── tools/        — Tool factories (trino, duckdb, metadata, spicedb, sql_blocker)
+├── mcp/          — FastMCP server factory
+├── mlflow/       — MLflow init (CA bundle, CR mode auth, autolog)
+├── prompts/      — System prompt registry with MLflow integration
+├── eval/         — KFP pipeline, 4+7 scorers, predictor function
+├── testing/      — pytest fixtures + plugin (auto-registered)
+├── deploy/       — Containerfile templates, kustomize, render engine
+└── scaffold/     — Project generator (data-agent init)
+```
+
+## Three Innovations
+
+1. **MCP Enrichment Contract** — every tool response includes methodology, geographic_context, supported/unsupported conclusions, caveats, data_freshness, citation
+2. **Reasoning Rubric + Deterministic Confidence** — 6-step `<reasoning>` block, confidence cards (HIGH/MODERATE/LOW) computed from tool trace, not LLM-generated
+3. **7-Dimension Capability Evaluation** — domain-agnostic scoring framework with LLM-as-judge
+
+## Examples
+
+- `examples/nndss/` — Australian disease surveillance (influenza, meningococcal, pneumococcal, salmonellosis)
+- `examples/mlb/` — Major League Baseball (batting, pitching, fielding, weather)
+
+## Documentation
+
+- [Architecture](docs/architecture.md) — component diagram, data flow, design decisions
+- [Evaluation Methodology](docs/evaluation-methodology.md) — 7 capability dimensions, scorer types
+- [Reasoning Protocol](docs/reasoning-protocol.md) — 6-step protocol, confidence card rules
