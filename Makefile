@@ -1,5 +1,5 @@
 .PHONY: install test validate dev schema lint clean \
-       retail-deploy retail-restart retail-expose retail-build retail-status
+       retail-deploy retail-restart retail-expose retail-build retail-trino-ui retail-status
 
 install:
 	pip install -e ".[all]"
@@ -47,6 +47,9 @@ retail-restart-%: ## Restart one sandbox: make retail-restart-finance
 
 retail-expose: ## Re-expose all sandbox services (idempotent)
 	./examples/retail/deploy/sandbox/expose-all.sh
+
+retail-trino-ui: ## Deploy Trino Query UI to trino namespace
+	helm upgrade --install trino-query-ui examples/retail/deploy/trino-query-ui-chart -n trino
 
 retail-status: ## Show sandbox status
 	@openshell sandbox list -g $${OPENSHELL_GATEWAY:-prelude2-final} 2>/dev/null
