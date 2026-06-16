@@ -21,26 +21,37 @@ WILDCARD_PATCH = '''    if host in ("0.0.0.0", "::"):
         host = "127.0.0.1"'''
 
 MCP_DISCOVERY_PATCH = '''
-    # Auto-discover MCP tools so dashboard agent sessions have them immediately.
-    # Without this, MCP tools only appear after manual /reload-mcp.
-    try:
-        from tools.mcp_tool import discover_mcp_tools
-        discover_mcp_tools()
-    except Exception:
-        pass
+    # Auto-discover MCP tools once the OIDC token exists.
+    # The token is written after login — we poll in a background thread
+    # so MCP tools are available without manual /reload-mcp.
+    import threading, pathlib, time as _time
+    def _deferred_mcp_discovery():
+        token_path = pathlib.Path("/tmp/hermes-oidc-token")
+        for _ in range(120):
+            if token_path.exists() and token_path.stat().st_size > 0:
+                _time.sleep(2)
+                try:
+                    from tools.mcp_tool import discover_mcp_tools
+                    discover_mcp_tools()
+                except Exception:
+                    pass
+                return
+            _time.sleep(5)
+    threading.Thread(target=_deferred_mcp_discovery, daemon=True).start()
 '''
 
-TOKEN_FORWARD_PATCH = '\n'.join([
-    '',
-    '    # Write OIDC access token for MCP identity forwarding',
-    '    import pathlib as _pathlib',
-    '    _token_path = _pathlib.Path("/tmp/hermes-oidc-token")',
-    '    try:',
-    '        _token_path.write_text(session.access_token)',
-    '    except Exception:',
-    '        pass',
-    '',
-])
+OIDC_ACCESS_TOKEN_PATCH = '''
+        # Write the real OAuth access token (not the ID token) for MCP identity forwarding.
+        # Hermes stores the ID token as session.access_token — but AuthBridge needs the
+        # OAuth access token which has the correct audience for JWT validation.
+        _oidc_at = payload.get("access_token")
+        if _oidc_at:
+            import pathlib as _pl
+            try:
+                _pl.Path("/tmp/hermes-oidc-token").write_text(_oidc_at)
+            except Exception:
+                pass
+'''
 
 def patch_function(source: str, func_name: str) -> str:
     pattern = rf'(def {func_name}\(.*?\n(?:.*?\n)*?    host = getattr\(app\.state, "bound_host", None\))'
@@ -64,23 +75,26 @@ def patch_lifespan_mcp(source: str) -> str:
     return result
 
 def patch_mcp_token_forward(source: str) -> str:
-    """Patch mcp_tool.py to inject OIDC token via static headers.
+    """Patch mcp_tool.py to inject OIDC token via request event hook.
 
-    The token is read from /tmp/hermes-oidc-token and set as a static header.
-    This runs at MCP connection time — the token must exist by then.
-    The httpx event_hooks response handler refreshes it on each response
-    so it picks up token changes (e.g., after re-login).
+    A request hook re-reads /tmp/hermes-oidc-token on every HTTP request,
+    so the MCP client always sends the latest token even after Keycloak
+    refresh (access tokens have a 5-minute TTL).
     """
     marker = 'client_kwargs["headers"] = headers'
-    patch = '''# Inject OIDC token for zero-trust identity forwarding
+    patch = '''# Inject OIDC token for zero-trust identity forwarding.
+                # Request hook re-reads the token file on every request so
+                # refreshed tokens are picked up automatically.
                 import pathlib as _pl
                 _oidc_token_path = _pl.Path("/tmp/hermes-oidc-token")
-                try:
-                    _tok = _oidc_token_path.read_text().strip()
-                    if _tok:
-                        headers["Authorization"] = f"Bearer {_tok}"
-                except Exception:
-                    pass
+                async def _inject_oidc_token(request):
+                    try:
+                        _tok = _oidc_token_path.read_text().strip()
+                        if _tok:
+                            request.headers["Authorization"] = f"Bearer {_tok}"
+                    except Exception:
+                        pass
+                client_kwargs.setdefault("event_hooks", {}).setdefault("request", []).append(_inject_oidc_token)
                 client_kwargs["headers"] = headers'''
     if marker not in source:
         print("  WARNING: could not find mcp_tool client_kwargs marker", file=sys.stderr)
@@ -109,29 +123,24 @@ def main():
     with open(mcp_path, "w") as f:
         f.write(mcp_source)
 
-    # Patch routes.py to write the OIDC token on BOTH login callback paths.
-    # Path 1: redirect-based (clear_pkce_cookie after set_session_cookies)
-    # Path 2: SPA JSON-based (set_session_cookies in POST /auth/callback/complete)
-    routes_path = ws_path.replace("web_server.py", "dashboard_auth/routes.py")
-    print(f"Patching {routes_path}", file=sys.stderr)
+    # Patch self-hosted OIDC plugin to write the real OAuth access token.
+    # The token response payload has both id_token and access_token.
+    # Hermes only stores id_token — we capture access_token for MCP forwarding.
+    oidc_path = "/opt/hermes/plugins/dashboard_auth/self_hosted/__init__.py"
+    print(f"Patching {oidc_path}", file=sys.stderr)
     try:
-        with open(routes_path, "r") as f:
-            routes_source = f.read()
-        # Inject token write before both login return points
-        count = 0
-        for m in ["    clear_pkce_cookie(resp, prefix=_prefix(request))",
-                   '    return resp\n\n\n@router.post("/auth/logout"']:
-            if m in routes_source:
-                routes_source = routes_source.replace(m, TOKEN_FORWARD_PATCH + m, 1)
-                count += 1
-        if count:
-            with open(routes_path, "w") as f:
-                f.write(routes_source)
-            print(f"  Patched routes.py ({count} login callback paths)", file=sys.stderr)
+        with open(oidc_path, "r") as f:
+            oidc_source = f.read()
+        marker = '        return self._session_from_tokens(\n            id_token=id_token, refresh_token=refresh_token, claims=claims\n        )'
+        if marker in oidc_source:
+            oidc_source = oidc_source.replace(marker, OIDC_ACCESS_TOKEN_PATCH + marker, 1)
+            with open(oidc_path, "w") as f:
+                f.write(oidc_source)
+            print("  Patched self-hosted OIDC plugin (access token capture)", file=sys.stderr)
         else:
-            print("  WARNING: could not find routes.py markers", file=sys.stderr)
+            print("  WARNING: could not find OIDC token marker", file=sys.stderr)
     except FileNotFoundError:
-        print("  WARNING: routes.py not found", file=sys.stderr)
+        print("  WARNING: self-hosted OIDC plugin not found", file=sys.stderr)
 
     print("Done", file=sys.stderr)
 
