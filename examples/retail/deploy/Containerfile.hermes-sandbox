@@ -23,7 +23,9 @@ RUN chmod -R a+rX /opt/hermes && \
 # the same host, so 127.0.0.1 is correct. Upstream PR candidate.
 # We also add a patch to auto-discover MCP tools at dashboard startup.
 COPY examples/retail/deploy/patches/fix-tui-wildcard-bind.py /tmp/fix-tui-wildcard-bind.py
-RUN python3 /tmp/fix-tui-wildcard-bind.py /opt/hermes/hermes_cli/web_server.py && \
+RUN python3 /tmp/fix-tui-wildcard-bind.py \
+      /opt/hermes/hermes_cli/web_server.py \
+      /opt/hermes/tools/mcp_tool.py && \
     rm /tmp/fix-tui-wildcard-bind.py
 
 # Bake non-secret config

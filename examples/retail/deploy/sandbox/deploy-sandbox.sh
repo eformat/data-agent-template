@@ -1,27 +1,17 @@
 #!/bin/bash
-# Deploy the Hermes sandbox on OpenShell with OAuth and WebSocket support.
+# Deploy Hermes sandboxes on OpenShell — one per department.
 #
-# Creates:
-#   - OAuth proxy deployment + service + route (reencrypt TLS)
-#   - OpenShell sandbox running Hermes (hermes-start.sh entrypoint)
-#   - Service endpoint exposure (port 9119)
-#
-# Secret injection:
-#   OPENAI_API_KEY is passed via `env` on the sandbox create command.
-#   hermes-start.sh writes config.yaml with the key via heredoc at startup.
-#   No secrets in the container image.
-#
-# Prerequisites:
-#   - OpenShell gateway running in openshell namespace
-#   - openshell CLI connected to the gateway (openshell gateway add)
-#   - oc port-forward to the gateway on port 10880
-#   - MCP servers deployed (retail-finance/sales/ops-mcp)
-#   - SpiceDB + Trino deployed
+# Creates 3 sandboxes (retail-finance, retail-sales, retail-ops), each with:
+#   - Its own OpenShift Route (Keycloak OIDC login)
+#   - Its own active Hermes profile + MCP server connection
+#   - Its own SpiceDB user identity (fred, sally, alex)
 #
 # Usage:
 #   export OPENAI_API_KEY="sk-..."
 #   export OPENSHELL_GATEWAY="prelude2-final"
-#   ./deploy-sandbox.sh
+#   ./deploy-sandbox.sh              # deploy all 3
+#   ./deploy-sandbox.sh finance      # deploy just finance
+#   ./deploy-sandbox.sh sales ops    # deploy sales + ops
 
 set -euo pipefail
 
@@ -31,42 +21,54 @@ NS="openshell"
 GATEWAY="${OPENSHELL_GATEWAY:-prelude2-final}"
 HERMES_IMAGE="${HERMES_IMAGE:-quay.io/eformat/hermes-openshell:latest}"
 APPS_DOMAIN="${APPS_DOMAIN:-$(oc get ingresses.config cluster -o jsonpath='{.spec.domain}')}"
+OIDC_ISSUER="${HERMES_DASHBOARD_OIDC_ISSUER:-https://keycloak-keycloak.apps.sno.sandbox1254.opentlc.com/realms/prelude-m6wl4-vs9lb}"
+OIDC_CLIENT="${HERMES_DASHBOARD_OIDC_CLIENT_ID:-hermes-dashboard}"
 
 if [ -z "${OPENAI_API_KEY:-}" ]; then
   echo "ERROR: OPENAI_API_KEY must be set"
   exit 1
 fi
 
-echo "=== Deploying Hermes Sandbox ==="
+# Which departments to deploy (default: all 3)
+DEPTS=("${@:-finance sales ops}")
+if [ "${1:-}" = "finance" ] || [ "${1:-}" = "sales" ] || [ "${1:-}" = "ops" ]; then
+  DEPTS=("$@")
+fi
 
-# 1. Build .env files with secrets (injected at deploy time, not in git).
-echo "--- Preparing secrets ---"
-UPLOAD_DIR=$(mktemp -d)
-mkdir -p "$UPLOAD_DIR/profiles/retail-"{finance,sales,ops}
-
-ENV_CONTENT="OPENAI_API_KEY=${OPENAI_API_KEY}
-GATEWAY_ALLOW_ALL_USERS=true
-TERM=xterm-256color"
-
-echo "$ENV_CONTENT" > "$UPLOAD_DIR/.env"
-for dept in finance sales ops; do
-  echo "$ENV_CONTENT" > "$UPLOAD_DIR/profiles/retail-${dept}/.env"
-done
-
-# 2. Create Route (reencrypt TLS, direct to OpenShell gateway — Hermes handles OAuth via Keycloak)
-echo "--- Creating Route ---"
 DEST_CA=$(oc get secret openshell-server-tls -n "$NS" -o jsonpath='{.data.ca\.crt}' | base64 -d)
 
-cat << ROUTEEOF | oc apply -n "$NS" -f -
+deploy_department() {
+  local dept="$1"
+  local sandbox_name="retail-${dept}"
+  local route_host="${sandbox_name}.${APPS_DOMAIN}"
+  local profile="retail-${dept}"
+
+  echo ""
+  echo "=== Deploying ${sandbox_name} ==="
+
+  # 1. Prepare upload dir with .env files
+  local upload_dir
+  upload_dir=$(mktemp -d)
+  mkdir -p "$upload_dir/profiles/retail-"{finance,sales,ops}
+  echo "GATEWAY_ALLOW_ALL_USERS=true" > "$upload_dir/.env"
+  for d in finance sales ops; do
+    cp "$upload_dir/.env" "$upload_dir/profiles/retail-${d}/.env"
+  done
+  # Set the active profile for this sandbox
+  echo "$profile" > "$upload_dir/active_profile"
+
+  # 2. Create Route (reencrypt TLS → OpenShell gateway → sandbox)
+  echo "--- Route: ${route_host} ---"
+  cat << ROUTEEOF | oc apply -n "$NS" -f -
 apiVersion: route.openshift.io/v1
 kind: Route
 metadata:
-  name: retail-hermes
+  name: ${sandbox_name}
   namespace: $NS
   annotations:
     haproxy.router.openshift.io/timeout: "3600s"
 spec:
-  host: retail-hermes.${APPS_DOMAIN}
+  host: ${route_host}
   tls:
     termination: reencrypt
     insecureEdgeTerminationPolicy: Redirect
@@ -79,63 +81,70 @@ $(echo "$DEST_CA" | sed 's/^/      /')
     name: openshell
 ROUTEEOF
 
-# 3. Create sandbox
-echo "--- Creating sandbox ---"
-openshell sandbox delete retail-hermes -g "$GATEWAY" 2>/dev/null || true
-sleep 5
-
-# sandbox create hangs (SSH session stays open), so background it and
-# poll status separately. Trap ensures cleanup on any exit.
-openshell sandbox create -g "$GATEWAY" \
-  --name retail-hermes \
-  --from "$HERMES_IMAGE" \
-  --upload "$UPLOAD_DIR:/sandbox/.hermes" \
-  --policy "$DEPLOY_DIR/policy-retail.yaml" \
-  --no-tty \
-  -- env OPENAI_API_KEY="${OPENAI_API_KEY}" \
-         GATEWAY_ALLOW_ALL_USERS=true \
-         HERMES_DASHBOARD_OIDC_ISSUER="${HERMES_DASHBOARD_OIDC_ISSUER:-https://keycloak-keycloak.apps.sno.sandbox1254.opentlc.com/realms/prelude-m6wl4-vs9lb}" \
-         HERMES_DASHBOARD_OIDC_CLIENT_ID="${HERMES_DASHBOARD_OIDC_CLIENT_ID:-hermes-dashboard}" \
-         /usr/local/bin/hermes-start.sh </dev/null >/dev/null 2>&1 &
-CREATE_PID=$!
-trap 'kill $CREATE_PID 2>/dev/null; rm -rf "$UPLOAD_DIR"' EXIT
-
-echo "Waiting for sandbox to be Ready..."
-for i in $(seq 1 60); do
-  STATUS=$(openshell sandbox list -g "$GATEWAY" 2>/dev/null | grep retail-hermes | awk '{print $NF}' || echo "")
-  if [ "$STATUS" = "Ready" ]; then
-    echo "Sandbox ready after ~${i}0s"
-    break
-  fi
-  if [ "$i" -eq 60 ]; then
-    echo "ERROR: Sandbox did not reach Ready state"
-    exit 1
-  fi
-  sleep 10
-done
-
-# 4. Expose service — retry because sandbox may still be registering endpoints
-echo "--- Exposing service ---"
-for i in $(seq 1 10); do
-  if openshell service expose retail-hermes 9119 -g "$GATEWAY" 2>&1; then
-    break
-  fi
-  if [ "$i" -eq 10 ]; then
-    echo "ERROR: Failed to expose service after 10 attempts"
-    exit 1
-  fi
-  echo "  Attempt $i failed, retrying in 3s..."
+  # 3. Create sandbox
+  echo "--- Sandbox: ${sandbox_name} ---"
+  openshell sandbox delete "$sandbox_name" -g "$GATEWAY" 2>/dev/null || true
   sleep 3
-done
 
-# 5. Clean up (trap handles CREATE_PID and UPLOAD_DIR)
-trap - EXIT
-kill $CREATE_PID 2>/dev/null || true
-rm -rf "$UPLOAD_DIR"
+  openshell sandbox create -g "$GATEWAY" \
+    --name "$sandbox_name" \
+    --from "$HERMES_IMAGE" \
+    --upload "$upload_dir:/sandbox/.hermes" \
+    --policy "$DEPLOY_DIR/policy-retail.yaml" \
+    --no-tty \
+    -- env OPENAI_API_KEY="${OPENAI_API_KEY}" \
+           GATEWAY_ALLOW_ALL_USERS=true \
+           HERMES_ACTIVE_PROFILE="${profile}" \
+           HERMES_DASHBOARD_OIDC_ISSUER="${OIDC_ISSUER}" \
+           HERMES_DASHBOARD_OIDC_CLIENT_ID="${OIDC_CLIENT}" \
+           HERMES_PUBLIC_URL="https://${route_host}" \
+           /usr/local/bin/hermes-start.sh </dev/null >/dev/null 2>&1 &
+  local create_pid=$!
+
+  # 4. Wait for Ready
+  echo "Waiting for ${sandbox_name}..."
+  for i in $(seq 1 60); do
+    local status
+    status=$(openshell sandbox list -g "$GATEWAY" 2>/dev/null | grep "$sandbox_name" | sed 's/\x1b\[[0-9;]*m//g' | awk '{print $NF}' || echo "")
+    if [ "$status" = "Ready" ]; then
+      echo "${sandbox_name} ready after ~${i}0s"
+      break
+    fi
+    if [ "$i" -eq 60 ]; then
+      echo "ERROR: ${sandbox_name} did not reach Ready state"
+      kill $create_pid 2>/dev/null || true
+      rm -rf "$upload_dir"
+      return 1
+    fi
+    sleep 10
+  done
+
+  # 5. Expose service
+  echo "--- Exposing ${sandbox_name} ---"
+  for i in $(seq 1 10); do
+    if openshell service expose "$sandbox_name" 9119 -g "$GATEWAY" 2>&1; then
+      break
+    fi
+    [ "$i" -eq 10 ] && echo "ERROR: Failed to expose ${sandbox_name}"
+    sleep 3
+  done
+
+  # 6. Cleanup
+  rm -rf "$upload_dir"
+
+  echo "  Dashboard: https://${route_host}"
+  echo "  Profile:   ${profile}"
+}
+
+# Deploy each department
+for dept in ${DEPTS[@]}; do
+  deploy_department "$dept"
+done
 
 echo ""
 echo "=== Deployment Complete ==="
 echo ""
-echo "Dashboard: https://retail-hermes.${APPS_DOMAIN}"
-echo "Profile: retail-sales (active)"
+for dept in ${DEPTS[@]}; do
+  echo "  retail-${dept}: https://retail-${dept}.${APPS_DOMAIN}"
+done
 echo ""

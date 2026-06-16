@@ -30,6 +30,18 @@ MCP_DISCOVERY_PATCH = '''
         pass
 '''
 
+TOKEN_FORWARD_PATCH = '\n'.join([
+    '',
+    '    # Write OIDC access token for MCP identity forwarding',
+    '    import pathlib as _pathlib',
+    '    _token_path = _pathlib.Path("/tmp/hermes-oidc-token")',
+    '    try:',
+    '        _token_path.write_text(session.access_token)',
+    '    except Exception:',
+    '        pass',
+    '',
+])
+
 def patch_function(source: str, func_name: str) -> str:
     pattern = rf'(def {func_name}\(.*?\n(?:.*?\n)*?    host = getattr\(app\.state, "bound_host", None\))'
     match = re.search(pattern, source)
@@ -51,19 +63,75 @@ def patch_lifespan_mcp(source: str) -> str:
     print("  Patched _lifespan (MCP auto-discovery)", file=sys.stderr)
     return result
 
+def patch_mcp_token_forward(source: str) -> str:
+    """Patch mcp_tool.py to inject OIDC token via static headers.
+
+    The token is read from /tmp/hermes-oidc-token and set as a static header.
+    This runs at MCP connection time — the token must exist by then.
+    The httpx event_hooks response handler refreshes it on each response
+    so it picks up token changes (e.g., after re-login).
+    """
+    marker = 'client_kwargs["headers"] = headers'
+    patch = '''# Inject OIDC token for zero-trust identity forwarding
+                import pathlib as _pl
+                _oidc_token_path = _pl.Path("/tmp/hermes-oidc-token")
+                try:
+                    _tok = _oidc_token_path.read_text().strip()
+                    if _tok:
+                        headers["Authorization"] = f"Bearer {_tok}"
+                except Exception:
+                    pass
+                client_kwargs["headers"] = headers'''
+    if marker not in source:
+        print("  WARNING: could not find mcp_tool client_kwargs marker", file=sys.stderr)
+        return source
+    result = source.replace(marker, patch, 1)
+    print("  Patched mcp_tool.py (OIDC token in headers)", file=sys.stderr)
+    return result
+
 def main():
-    path = sys.argv[1] if len(sys.argv) > 1 else "/opt/hermes/hermes_cli/web_server.py"
-    print(f"Patching {path}", file=sys.stderr)
+    ws_path = sys.argv[1] if len(sys.argv) > 1 else "/opt/hermes/hermes_cli/web_server.py"
+    mcp_path = sys.argv[2] if len(sys.argv) > 2 else "/opt/hermes/tools/mcp_tool.py"
 
-    with open(path, "r") as f:
+    print(f"Patching {ws_path}", file=sys.stderr)
+    with open(ws_path, "r") as f:
         source = f.read()
-
     source = patch_function(source, "_build_gateway_ws_url")
     source = patch_function(source, "_build_sidecar_url")
     source = patch_lifespan_mcp(source)
-
-    with open(path, "w") as f:
+    with open(ws_path, "w") as f:
         f.write(source)
+
+    print(f"Patching {mcp_path}", file=sys.stderr)
+    with open(mcp_path, "r") as f:
+        mcp_source = f.read()
+    mcp_source = patch_mcp_token_forward(mcp_source)
+    with open(mcp_path, "w") as f:
+        f.write(mcp_source)
+
+    # Patch routes.py to write the OIDC token on BOTH login callback paths.
+    # Path 1: redirect-based (clear_pkce_cookie after set_session_cookies)
+    # Path 2: SPA JSON-based (set_session_cookies in POST /auth/callback/complete)
+    routes_path = ws_path.replace("web_server.py", "dashboard_auth/routes.py")
+    print(f"Patching {routes_path}", file=sys.stderr)
+    try:
+        with open(routes_path, "r") as f:
+            routes_source = f.read()
+        # Inject token write before both login return points
+        count = 0
+        for m in ["    clear_pkce_cookie(resp, prefix=_prefix(request))",
+                   '    return resp\n\n\n@router.post("/auth/logout"']:
+            if m in routes_source:
+                routes_source = routes_source.replace(m, TOKEN_FORWARD_PATCH + m, 1)
+                count += 1
+        if count:
+            with open(routes_path, "w") as f:
+                f.write(routes_source)
+            print(f"  Patched routes.py ({count} login callback paths)", file=sys.stderr)
+        else:
+            print("  WARNING: could not find routes.py markers", file=sys.stderr)
+    except FileNotFoundError:
+        print("  WARNING: routes.py not found", file=sys.stderr)
 
     print("Done", file=sys.stderr)
 

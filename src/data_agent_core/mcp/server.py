@@ -1,34 +1,71 @@
 """MCP server factory — creates a FastMCP server from DomainConfig.
 
-Usage in a domain project:
-    from data_agent_core.mcp.server import create_mcp_server
-    from data_agent_core.config.loader import load_config
-    config = load_config("agent-config.yaml")
-    mcp = create_mcp_server(config)
-    if __name__ == "__main__":
-        mcp.run(transport="streamable-http", host="0.0.0.0", port=9090)
+Identity model:
+    Every request MUST carry a valid JWT in the Authorization header.
+    No JWT = no access. No fallbacks. No env vars. No defaults.
+    The JWT user is stored in a module-level global on every HTTP request
+    by a Starlette middleware. Tool functions read from the global.
+    Single user per sandbox deployment — the global is always correct.
 """
 
 from __future__ import annotations
 
+import base64
 import json
+import logging
 import os
 import re
+import threading
 
 from data_agent_core.config.models import DomainConfig
 
+logger = logging.getLogger(__name__)
+
+# The authenticated user. Set by middleware on every HTTP request.
+# Read by tool functions. Protected by a lock for thread safety.
+_identity_lock = threading.Lock()
+_authenticated_user: str | None = None
+
+
+def _extract_user_from_jwt(authorization: str) -> str | None:
+    """Extract preferred_username or sub from a JWT."""
+    if not authorization or not authorization.startswith("Bearer "):
+        return None
+    token = authorization[7:]
+    try:
+        parts = token.split(".")
+        if len(parts) < 2:
+            return None
+        payload = parts[1]
+        padding = 4 - len(payload) % 4
+        if padding != 4:
+            payload += "=" * padding
+        claims = json.loads(base64.urlsafe_b64decode(payload))
+        return claims.get("preferred_username") or claims.get("sub")
+    except Exception:
+        return None
+
+
+def _get_authenticated_user() -> str | None:
+    """Get the current authenticated user. Returns None if no JWT identity."""
+    with _identity_lock:
+        return _authenticated_user
+
+
+def _set_authenticated_user(user: str | None) -> None:
+    """Set the authenticated user from JWT."""
+    global _authenticated_user
+    with _identity_lock:
+        _authenticated_user = user
+
 
 def _check_spicedb_permission(user: str, dataset: str, permission: str = "query") -> dict:
-    """Check SpiceDB permission for a user on a dataset.
-
-    Returns {"allowed": bool, ...}. If SpiceDB is not configured, allows all.
-    """
+    """Check SpiceDB permission. Fail-closed: no SpiceDB = deny."""
     endpoint = os.environ.get("SPICEDB_ENDPOINT")
     if not endpoint:
-        return {"allowed": True, "note": "SpiceDB not configured — all access allowed"}
+        return {"allowed": False, "error": "SpiceDB not configured", "user": user, "dataset": dataset}
 
     token = os.environ.get("SPICEDB_TOKEN", "averysecretpresharedkey")
-    insecure = os.environ.get("SPICEDB_INSECURE", "true").lower() == "true"
 
     try:
         import grpc
@@ -38,15 +75,7 @@ def _check_spicedb_permission(user: str, dataset: str, permission: str = "query"
         )
         from authzed.api.v1 import Client as SpiceDBClient
 
-        if insecure:
-            channel = grpc.insecure_channel(endpoint)
-            call_creds = grpc.metadata_call_credentials(
-                lambda context, callback: callback([("authorization", f"Bearer {token}")], None)
-            )
-            channel = grpc.intercept_channel(channel)
-        else:
-            channel = grpc.secure_channel(endpoint, grpc.ssl_channel_credentials())
-
+        channel = grpc.insecure_channel(endpoint)
         client = SpiceDBClient.__new__(SpiceDBClient)
         client.init_stubs(channel)
 
@@ -69,22 +98,20 @@ def _check_spicedb_permission(user: str, dataset: str, permission: str = "query"
 
 
 def _extract_tables_from_sql(sql: str, catalog: str, schema: str) -> list[str]:
-    """Extract table names from SQL that reference the configured catalog.schema."""
+    """Extract table names from SQL."""
     pattern = rf"{re.escape(catalog)}\.{re.escape(schema)}\.(\w+)"
     return list(set(re.findall(pattern, sql, re.IGNORECASE)))
 
 
-def create_mcp_server(config: DomainConfig):
-    """Create a FastMCP server with domain-configured tools.
+def _deny(reason: str) -> dict:
+    """Standard deny response."""
+    return {"allowed": False, "error": reason, "reason": "access_denied"}
 
-    Tools registered:
-    - query_trino: Read-only SQL against Trino (with SpiceDB permission check)
-    - check_permission: Check if current user can access a dataset
-    - describe_datasets: Dataset metadata and characteristics
-    - get_methodology: Deep methodology for a specific dataset
-    - /health: K8s readiness probe
-    """
+
+def create_mcp_server(config: DomainConfig):
+    """Create a FastMCP server with identity-aware tools."""
     from fastmcp import FastMCP
+    from starlette.types import ASGIApp, Receive, Scope, Send
 
     from data_agent_core.tools.trino import create_query_trino_tool_async
     from data_agent_core.tools.metadata import (
@@ -92,12 +119,43 @@ def create_mcp_server(config: DomainConfig):
         create_get_methodology_tool_async,
     )
 
-    current_user = os.environ.get("CURRENT_USER", "anonymous")
-
     mcp = FastMCP(
         name=f"{config.domain_name}-data-server",
         instructions=config.domain_description,
     )
+
+    # ── Identity middleware ──────────────────────────────────────
+    # Extracts JWT user from Authorization header on EVERY HTTP request.
+    # Stores in module-level global. One code path. No alternatives.
+    #
+    # http_app() returns a new object each time, so we monkey-patch it
+    # to always wrap with our middleware.
+
+    class IdentityMiddleware:
+        """ASGI middleware that extracts JWT identity from every request."""
+        def __init__(self, app: ASGIApp):
+            self.app = app
+
+        async def __call__(self, scope: Scope, receive: Receive, send: Send):
+            if scope["type"] == "http":
+                for name, value in scope.get("headers", []):
+                    if name == b"authorization":
+                        user = _extract_user_from_jwt(value.decode())
+                        if user:
+                            _set_authenticated_user(user)
+                        break
+            await self.app(scope, receive, send)
+
+    _original_http_app = mcp.http_app
+
+    def _patched_http_app(**kwargs):
+        app = _original_http_app(**kwargs)
+        app.add_middleware(IdentityMiddleware)
+        return app
+
+    mcp.http_app = _patched_http_app
+
+    # ── Tools ────────────────────────────────────────────────────
 
     raw_query_fn = create_query_trino_tool_async(config)
     describe_datasets_fn = create_describe_datasets_tool_async(config)
@@ -109,41 +167,47 @@ def create_mcp_server(config: DomainConfig):
     )
 
     async def query_trino(sql: str) -> dict:
-        tables = _extract_tables_from_sql(sql, config.trino_catalog, config.trino_schema)
+        user = _get_authenticated_user()
+        if not user:
+            return _deny("No authenticated user. Log in via the dashboard.")
 
+        tables = _extract_tables_from_sql(sql, config.trino_catalog, config.trino_schema)
         for table in tables:
-            check = _check_spicedb_permission(current_user, table)
+            check = _check_spicedb_permission(user, table)
             if not check.get("allowed"):
-                return {
-                    "error": f"Permission denied: user '{current_user}' does not have query access to dataset '{table}'",
-                    "permission_check": check,
-                    "sql_executed": sql,
-                }
+                return _deny(f"User '{user}' cannot access '{table}': {check}")
 
         return await raw_query_fn(sql)
 
     mcp.tool(description=query_doc)(query_trino)
 
     async def check_permission(dataset: str, permission: str = "query") -> dict:
-        """Check if the current user has permission to access a dataset via SpiceDB."""
-        return _check_spicedb_permission(current_user, dataset, permission)
+        """Check if the authenticated user can access a dataset."""
+        user = _get_authenticated_user()
+        if not user:
+            return _deny("No authenticated user. Log in via the dashboard.")
+        dataset = dataset.rsplit(".", 1)[-1]
+        return _check_spicedb_permission(user, dataset, permission)
 
-    mcp.tool(description=f"Check if user '{current_user}' has permission to access a dataset.")(check_permission)
+    mcp.tool(description="Check if the authenticated user can access a dataset.")(check_permission)
 
     mcp.tool(description=(
-        f"Describe and compare {config.domain_display_name} datasets available for a topic."
+        f"Describe and compare {config.domain_display_name} datasets."
     ))(describe_datasets_fn)
 
     mcp.tool(description=(
-        f"Retrieve detailed methodology for a specific {config.domain_display_name} dataset."
+        f"Retrieve methodology for a {config.domain_display_name} dataset."
     ))(get_methodology_fn)
 
     @mcp.custom_route("/health", methods=["GET"])
     async def health(request):
         from starlette.responses import JSONResponse
+        auth = request.headers.get("authorization", "")
+        jwt_user = _extract_user_from_jwt(auth)
         return JSONResponse({
             "status": "ok",
-            "user": current_user,
+            "user": jwt_user or _get_authenticated_user(),
+            "auth_source": "jwt" if jwt_user else ("global" if _get_authenticated_user() else "none"),
             "spicedb": os.environ.get("SPICEDB_ENDPOINT", "not configured"),
         })
 

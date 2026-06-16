@@ -3,22 +3,25 @@
 #
 # Port layout:
 #   Hermes Gateway (chat API):  127.0.0.1:18642
-#   Hermes Dashboard (web UI):  0.0.0.0:9119 (gated mode — Hermes OAuth)
+#   Hermes Dashboard (web UI):  0.0.0.0:9119 (gated mode — Hermes OIDC)
 #
 # Dashboard binds 0.0.0.0 which activates Hermes gated/OAuth mode.
-# Users authenticate via Keycloak (OpenShift identity) — no external OAuth proxy needed.
-# The OpenShell relay connects to 127.0.0.1:9119 inside the sandbox.
+# Users authenticate via Keycloak OIDC — no external OAuth proxy needed.
 #
 # Secrets: OPENAI_API_KEY is passed via `env` on the sandbox create command.
+# Config writing is idempotent — on first boot it writes configs with the real
+# API key. On subsequent boots (PVC-backed restarts) existing configs are kept.
 
 export TERM=xterm-256color
 export HERMES_HOME=/sandbox/.hermes
 export HERMES_TUI_DIR="/opt/hermes/ui-tui"
 
-# Source .env for additional settings
+# Active profile — prefer env var (injected at sandbox create), fall back to file
+ACTIVE="${HERMES_ACTIVE_PROFILE:-$(cat /sandbox/.hermes/active_profile 2>/dev/null || echo "retail-sales")}"
+echo "$ACTIVE" > /sandbox/.hermes/active_profile
 set -a
 [ -f /sandbox/.hermes/.env ] && source /sandbox/.hermes/.env
-[ -f /sandbox/.hermes/profiles/retail-sales/.env ] && source /sandbox/.hermes/profiles/retail-sales/.env
+[ -f "/sandbox/.hermes/profiles/${ACTIVE}/.env" ] && source "/sandbox/.hermes/profiles/${ACTIVE}/.env"
 set +a
 
 # Self-hosted OIDC provider for Hermes gated mode (Keycloak)
@@ -28,15 +31,17 @@ export HERMES_DASHBOARD_OIDC_CLIENT_ID="${HERMES_DASHBOARD_OIDC_CLIENT_ID:-herme
 # Public URL (for OAuth redirects)
 PUBLIC_URL="${HERMES_PUBLIC_URL:-https://retail-hermes.apps.prelude-m6wl4-vs9lb.sandbox1832.opentlc.com}"
 
-# Write config.yaml files with the real API key and OAuth config.
-for profile_dir in /sandbox/.hermes/profiles/retail-*/; do
-  [ -d "$profile_dir" ] || continue
-  dept=$(basename "$profile_dir" | sed 's/retail-//')
-  cat > "${profile_dir}/config.yaml" << CFGEOF
+# Write config.yaml files ONLY on first boot (when configs still have the
+# placeholder or don't exist). On PVC-backed restarts, preserve user edits.
+if [ -n "${OPENAI_API_KEY:-}" ]; then
+  for profile_dir in /sandbox/.hermes/profiles/retail-*/; do
+    [ -d "$profile_dir" ] || continue
+    dept=$(basename "$profile_dir" | sed 's/retail-//')
+    cat > "${profile_dir}/config.yaml" << CFGEOF
 model:
   provider: custom
-  model: kimi-k2-6
-  base_url: http://maas.apps.ocp.cloud.rhai-tmm.dev/prelude-maas/kimi-k2-6/v1
+  model: qwen36-27b
+  base_url: http://maas.apps.ocp.cloud.rhai-tmm.dev/prelude-maas/qwen36-27b/v1
   api_key: "${OPENAI_API_KEY}"
 dashboard:
   theme: redhat
@@ -45,13 +50,13 @@ mcp_servers:
   retail-${dept}:
     url: http://retail-${dept}-mcp.openshell.svc.cluster.local:9090/mcp
 CFGEOF
-done
+  done
 
-cat > /sandbox/.hermes/config.yaml << CFGEOF
+  cat > /sandbox/.hermes/config.yaml << CFGEOF
 model:
   provider: custom
-  model: kimi-k2-6
-  base_url: http://maas.apps.ocp.cloud.rhai-tmm.dev/prelude-maas/kimi-k2-6/v1
+  model: qwen36-27b
+  base_url: http://maas.apps.ocp.cloud.rhai-tmm.dev/prelude-maas/qwen36-27b/v1
   api_key: "${OPENAI_API_KEY}"
 dashboard:
   theme: redhat
@@ -59,15 +64,16 @@ dashboard:
 mcp_servers: {}
 CFGEOF
 
-# Skip config migrate — it overwrites the heredoc configs with cached values
+  # Normalize config on first boot
+  /usr/local/bin/hermes config migrate 2>/dev/null || true
+fi
 
 # Start gateway on internal-only port
 API_SERVER_ENABLED=true API_SERVER_PORT=18642 API_SERVER_HOST=127.0.0.1 \
   /usr/local/bin/hermes gateway run --accept-hooks &
 GATEWAY_PID=$!
 
-# Wait for gateway to be healthy AND MCP tools discovered before starting dashboard.
-# Without this, the first chat session sees 0 MCP tools.
+# Wait for gateway health before starting dashboard
 for i in $(seq 1 30); do
   if curl -sf --max-time 2 "http://127.0.0.1:18642/health" >/dev/null 2>&1; then
     break
@@ -77,8 +83,7 @@ done
 sleep 3
 
 # Dashboard on 0.0.0.0:9119 — non-loopback activates Hermes gated/OAuth mode.
-# Users authenticate via Keycloak OIDC. The TUI wildcard-bind patch in the
-# Containerfile ensures the TUI connects to 127.0.0.1 (not 0.0.0.0).
+# The TUI wildcard-bind patch ensures the TUI connects to 127.0.0.1 (not 0.0.0.0).
 GATEWAY_HEALTH_URL="http://127.0.0.1:18642" \
   /usr/local/bin/hermes dashboard \
     --host 0.0.0.0 \

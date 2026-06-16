@@ -176,7 +176,7 @@ Based on `gpu-booking-app-plugin/chart/`, renamed and reconfigured:
 
 ## Component 3: Data Lakehouse (Trino on OpenShift)
 
-Deploy using `/home/mike/git/trino-chart`. The chart already supports OpenShift (non-root, SCC-compliant, Route support).
+Deploy using `~/git/trino-chart`. The chart already supports OpenShift (non-root, SCC-compliant, Route support).
 
 **Stack**: Trino coordinator + workers → Iceberg tables → Nessie catalog → MinIO S3
 

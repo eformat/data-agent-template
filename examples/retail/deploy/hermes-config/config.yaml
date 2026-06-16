@@ -1,7 +1,7 @@
 model:
   provider: custom
-  model: kimi-k2-6
-  base_url: http://maas.apps.ocp.cloud.rhai-tmm.dev/prelude-maas/kimi-k2-6/v1
+  model: qwen36-27b
+  base_url: http://maas.apps.ocp.cloud.rhai-tmm.dev/prelude-maas/qwen36-27b/v1
   api_key: "${OPENAI_API_KEY}"
 mcp_servers: {}
 dashboard:

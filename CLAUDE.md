@@ -75,8 +75,8 @@ src/data_agent_core/
 
 ## Reference Repos
 
-- MLB: `/home/mike/git/mcp-for-mlb`
-- NNDSS: `/home/mike/git/mcp-for-public-health`
+- MLB: `~/git/mcp-for-mlb`
+- NNDSS: `~/git/mcp-for-public-health`
 
 ## Testing
 
