@@ -22,8 +22,7 @@ declare -A DEPT_DATASETS=( [sales]=orders [finance]=revenue [ops]=inventory )
 OWN_DATASET="${DEPT_DATASETS[$DEPT]}"
 
 # User passwords — demo only
-declare -A PASSWORDS=( [sally]=password [fred]=password [alex]=password )
-PASS="${PASSWORDS[$USER]:-password}"
+PASS="${DEMO_PASSWORD:-password}"
 
 BOLD="\033[1m"
 GREEN="\033[32m"
