@@ -42,12 +42,15 @@ AUTH_PROXY_PATCH = '''
     except Exception:
         pass
 
-    import threading, os, http.server
+    import threading, os, http.server, http.client
     import json as _json, base64 as _b64, time as _time
     import urllib.request, urllib.parse, urllib.error
+    from urllib.parse import urlparse as _urlparse
 
     _upstream_url = os.environ.get("MCP_UPSTREAM_URL", "")
     _proxy_port = int(os.environ.get("MCP_PROXY_PORT", "8889"))
+    _http_proxy = os.environ.get("HTTP_PROXY", os.environ.get(
+        "http_proxy", ""))
 
     class _TokenStore:
         token = None
@@ -62,6 +65,8 @@ AUTH_PROXY_PATCH = '''
     _sys.modules["_auth_token_store"] = _ts_mod
 
     class _ProxyHandler(http.server.BaseHTTPRequestHandler):
+        protocol_version = "HTTP/1.1"
+
         def do_POST(self):
             self._proxy()
         def do_GET(self):
@@ -81,42 +86,65 @@ AUTH_PROXY_PATCH = '''
                 return
             length = int(self.headers.get("Content-Length", 0))
             body = self.rfile.read(length) if length else None
-            target = _upstream_url.rstrip("/") + self.path
+            with _TokenStore.lock:
+                tok = _TokenStore.token
+            if not tok:
+                r = b'{"error":"waiting for login"}'
+                self.send_response(503)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(r)))
+                self.send_header("Retry-After", "5")
+                self.end_headers()
+                self.wfile.write(r)
+                return
+            target_url = _upstream_url.rstrip("/") + self.path
             headers = {}
             for key in self.headers:
                 k = key.lower()
-                if k in ("host", "authorization"):
+                if k in ("host", "authorization", "content-length"):
                     continue
                 headers[key] = self.headers[key]
-            with _TokenStore.lock:
-                tok = _TokenStore.token
-            if tok:
-                headers["Authorization"] = f"Bearer {tok}"
-            req = urllib.request.Request(
-                target, data=body, headers=headers, method=self.command
-            )
+            headers["Authorization"] = f"Bearer {tok}"
+            if body is not None:
+                headers["Content-Length"] = str(len(body))
             try:
-                resp = urllib.request.urlopen(req, timeout=300)
-                self.send_response(resp.status)
-                for k, v in resp.headers.items():
-                    if k.lower() in ("transfer-encoding",):
+                if _http_proxy:
+                    pp = _urlparse(_http_proxy)
+                    conn = http.client.HTTPConnection(
+                        pp.hostname, pp.port or 3128, timeout=300)
+                    conn.request(self.command, target_url,
+                                 body=body, headers=headers)
+                else:
+                    up = _urlparse(target_url)
+                    path = up.path
+                    if up.query:
+                        path += "?" + up.query
+                    conn = http.client.HTTPConnection(
+                        up.hostname, up.port or 80, timeout=300)
+                    conn.request(self.command, path,
+                                 body=body, headers=headers)
+                resp = conn.getresponse()
+                resp_headers = resp.getheaders()
+                is_sse = any(
+                    k.lower() == "content-type"
+                    and "text/event-stream" in v
+                    for k, v in resp_headers
+                )
+                body = resp.read()
+                conn.close()
+                self.send_response_only(resp.status)
+                for k, v in resp_headers:
+                    kl = k.lower()
+                    if kl in ("transfer-encoding", "content-length",
+                              "connection"):
                         continue
                     self.send_header(k, v)
+                self.send_header("Content-Length", str(len(body)))
+                if is_sse:
+                    self.send_header("Connection", "close")
                 self.end_headers()
-                while True:
-                    chunk = resp.read(8192)
-                    if not chunk:
-                        break
-                    self.wfile.write(chunk)
-                    self.wfile.flush()
-            except urllib.error.HTTPError as e:
-                self.send_response(e.code)
-                for k, v in e.headers.items():
-                    if k.lower() in ("transfer-encoding",):
-                        continue
-                    self.send_header(k, v)
-                self.end_headers()
-                self.wfile.write(e.read())
+                self.wfile.write(body)
+                self.wfile.flush()
             except Exception as _e:
                 try:
                     self.send_error(502, str(_e))

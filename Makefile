@@ -1,6 +1,6 @@
 .PHONY: install test validate dev schema lint clean \
        retail-deploy retail-restart retail-expose retail-build retail-trino-ui \
-       retail-mcp-deploy retail-mcp-restart retail-kagenti retail-demo retail-status
+       retail-mcp-deploy retail-mcp-restart retail-kagenti retail-demo retail-test retail-status
 
 install:
 	pip install -e ".[all]"
@@ -70,6 +70,9 @@ retail-trino-ui: ## Deploy Trino Query UI to trino namespace
 
 retail-demo: ## Run the zero-trust identity demo
 	./examples/retail/deploy/demo-zero-trust.sh
+
+retail-test: ## Run auth proxy + OPA isolation test suite
+	./examples/retail/deploy/test-auth-proxy.sh
 
 retail-status: ## Show sandbox status
 	@openshell sandbox list -g $${OPENSHELL_GATEWAY:-prelude2-final} 2>/dev/null

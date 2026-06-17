@@ -73,22 +73,8 @@ CFGEOF
   /usr/local/bin/hermes config migrate 2>/dev/null || true
 fi
 
-# Start gateway on internal-only port
-API_SERVER_ENABLED=true API_SERVER_PORT=18642 API_SERVER_HOST=127.0.0.1 \
-  /usr/local/bin/hermes gateway run --accept-hooks &
-GATEWAY_PID=$!
-
-# Wait for gateway health before starting dashboard
-for i in $(seq 1 30); do
-  if curl -sf --max-time 2 "http://127.0.0.1:18642/health" >/dev/null 2>&1; then
-    break
-  fi
-  sleep 1
-done
-sleep 3
-
-# Dashboard on 0.0.0.0:9119 — non-loopback activates Hermes gated/OAuth mode.
-# The TUI wildcard-bind patch ensures the TUI connects to 127.0.0.1 (not 0.0.0.0).
+# Start dashboard FIRST — it runs the auth proxy on :8889.
+# The proxy must be ready before the gateway tries MCP connections.
 GATEWAY_HEALTH_URL="http://127.0.0.1:18642" \
   /usr/local/bin/hermes dashboard \
     --host 0.0.0.0 \
@@ -96,5 +82,20 @@ GATEWAY_HEALTH_URL="http://127.0.0.1:18642" \
     --skip-build \
     --no-open &
 DASHBOARD_PID=$!
+
+# Wait for auth proxy to be ready
+for i in $(seq 1 30); do
+  if curl -sf --max-time 2 "http://127.0.0.1:${MCP_PROXY_PORT}/health" >/dev/null 2>&1 || \
+     python3 -c "import socket; s=socket.socket(); s.settimeout(1); s.connect(('127.0.0.1',${MCP_PROXY_PORT})); s.close()" 2>/dev/null; then
+    break
+  fi
+  sleep 1
+done
+sleep 2
+
+# Start gateway after proxy is ready
+API_SERVER_ENABLED=true API_SERVER_PORT=18642 API_SERVER_HOST=127.0.0.1 \
+  /usr/local/bin/hermes gateway run --accept-hooks &
+GATEWAY_PID=$!
 
 sleep infinity
