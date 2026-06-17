@@ -34,3 +34,6 @@ trino>=0.329
 [mcp]
 fastmcp>=2.0
 trino>=0.329
+authzed
+grpcio>=1.60
+sqlglot>=26.0

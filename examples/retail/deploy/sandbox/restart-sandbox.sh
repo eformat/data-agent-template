@@ -28,10 +28,15 @@ restart_one() {
   for d in finance sales ops; do cp "$UPLOAD_DIR/.env" "$UPLOAD_DIR/profiles/retail-${d}/.env"; done
   echo "retail-${dept}" > "$UPLOAD_DIR/active_profile"
 
+  # Generate per-department OPA policy (only this dept's MCP server)
+  local dept_policy="/tmp/policy-retail-${dept}.yaml"
+  sed "/retail-.*-mcp/{/retail-${dept}-mcp/!{N;d;}}" \
+      "$DEPLOY_DIR/policy-retail.yaml" > "$dept_policy"
+
   timeout 120 openshell sandbox create -g "$GATEWAY" \
     --name "$name" --from "$HERMES_IMAGE" \
     --upload "$UPLOAD_DIR:/sandbox/.hermes" \
-    --policy "$DEPLOY_DIR/policy-retail.yaml" \
+    --policy "$dept_policy" \
     --no-tty \
     -- env OPENAI_API_KEY="${OPENAI_API_KEY}" \
            GATEWAY_ALLOW_ALL_USERS=true \
@@ -62,7 +67,7 @@ restart_one() {
     echo "  Expose retry ${i}/5..."; sleep 5
   done
   if ! $expose_ok; then echo "  WARNING: expose failed for ${name}"; fi
-  rm -rf "$UPLOAD_DIR"
+  rm -rf "$UPLOAD_DIR" "$dept_policy"
   echo "  ${name}: https://${name}.${APPS_DOMAIN}"
 }
 

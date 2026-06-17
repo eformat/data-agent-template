@@ -337,7 +337,7 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
   },
   "canvas": {
     "width": 1600,
-    "height": 1080
+    "height": 1150
   },
   "nodes": {
     "sally": {
@@ -421,7 +421,7 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
       "w": 165,
       "h": 55,
       "label": "MCP Server",
-      "sublabel": ":8080",
+      "sublabel": ":8080 · sqlglot AST",
       "color": "#58a6ff",
       "inner": true
     },
@@ -449,7 +449,7 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
       "x": 20,
       "y": 590,
       "w": 1550,
-      "h": 465,
+      "h": 530,
       "type": "boundary",
       "label": "Security Layers",
       "labelAlign": "left"
@@ -538,7 +538,7 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
       "w": 280,
       "h": 32,
       "label": "OPA Network Policy",
-      "sublabel": "sandbox → MCP only, no direct Trino/SpiceDB",
+      "sublabel": "per-sandbox · own dept MCP only · cross-dept blocked",
       "type": "plugin",
       "inner": true,
       "color": "#d2a8ff",
@@ -638,7 +638,7 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
       "x": 590,
       "y": 855,
       "w": 560,
-      "h": 185,
+      "h": 260,
       "type": "container",
       "label": "Credential Protection",
       "color": "#f85149"
@@ -695,7 +695,7 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
       "x": 120,
       "y": 260,
       "w": 260,
-      "h": 120,
+      "h": 200,
       "type": "container",
       "label": "Agent Sandbox (OpenShell)",
       "color": "#3fb950"
@@ -706,7 +706,7 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
       "w": 190,
       "h": 65,
       "label": "OPA Proxy",
-      "sublabel": "10.200.0.1:3128 (L7)",
+      "sublabel": "Per-Sandbox · 10.200.0.1:3128",
       "color": "#58a6ff",
       "fontSize": 16
     },
@@ -720,6 +720,53 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
       "type": "plugin",
       "inner": true,
       "color": "#58a6ff",
+      "fontSize": 12
+    },
+    "auth_proxy": {
+      "x": 150,
+      "y": 385,
+      "w": 200,
+      "h": 55,
+      "label": "Auth Proxy",
+      "sublabel": "localhost:8889 · injects JWT",
+      "color": "#f0883e",
+      "fontSize": 14,
+      "inner": true
+    },
+    "s_authproxy": {
+      "x": 605,
+      "y": 1034,
+      "w": 530,
+      "h": 32,
+      "label": "Dashboard Auth Proxy",
+      "sublabel": "token in memory only · agent makes plain HTTP · proxy injects JWT",
+      "type": "plugin",
+      "inner": true,
+      "color": "#f85149",
+      "fontSize": 12
+    },
+    "s_dumpable": {
+      "x": 605,
+      "y": 1070,
+      "w": 530,
+      "h": 32,
+      "label": "PR_SET_DUMPABLE=0",
+      "sublabel": "/proc/PID/mem + /environ + ptrace blocked for siblings",
+      "type": "plugin",
+      "inner": true,
+      "color": "#f85149",
+      "fontSize": 12
+    },
+    "s_sqlglot": {
+      "x": 495,
+      "y": 727,
+      "w": 280,
+      "h": 32,
+      "label": "sqlglot AST Validation",
+      "sublabel": "Trino dialect · table nodes checked · fail-closed",
+      "type": "plugin",
+      "inner": true,
+      "color": "#d2a8ff",
       "fontSize": 12
     }
   },
@@ -909,6 +956,10 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
         [
           "Identity Source",
           "x-auth-username header (from AuthBridge)"
+        ],
+        [
+          "SQL Validation",
+          "sqlglot AST parsing (Trino dialect)"
         ],
         [
           "Authorization",
@@ -1119,24 +1170,28 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
       ]
     },
     "s_opa": {
-      "title": "OPA Network Policy",
-      "description": "Open Policy Agent network policy restricts which endpoints the MCP sandbox can reach. The sandbox can only connect to MCP servers — it cannot reach Trino or SpiceDB directly. This prevents an agent with code execution from bypassing the authorization chain.",
+      "title": "OPA Network Policy (Per-Sandbox)",
+      "description": "Per-sandbox network policy restricts each sandbox to its own department's MCP server. Finance can only reach retail-finance-mcp, sales only retail-sales-mcp. Cross-department MCP traffic is blocked at L7, eliminating cross-department token theft entirely.",
       "details": [
         [
-          "Allowed",
-          "MCP servers only"
+          "Scope",
+          "Per-sandbox isolation"
         ],
         [
-          "Blocked",
-          "Trino, SpiceDB, Keycloak, all other services"
+          "Finance",
+          "→ retail-finance-mcp ONLY"
         ],
         [
-          "Enforced By",
-          "OPA policy + network namespace rules"
+          "Sales",
+          "→ retail-sales-mcp ONLY"
+        ],
+        [
+          "Cross-dept",
+          "403 policy_denied"
         ],
         [
           "Defends",
-          "Authorization bypass via direct data access"
+          "Cross-department token theft, lateral movement"
         ]
       ]
     },
@@ -1410,7 +1465,7 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
     },
     "opa_proxy": {
       "title": "OPA Proxy (L7 Policy Enforcement)",
-      "description": "HTTP/HTTPS forward proxy enforcing sandbox network policy at L7. Set via HTTP_PROXY/HTTPS_PROXY env vars by OpenShell. ALL sandbox egress flows through this proxy — it is not optional.",
+      "description": "Per-sandbox HTTP/HTTPS forward proxy enforcing department-scoped network policy at L7. Each sandbox can only reach its own department's MCP server. Cross-department MCP traffic is blocked with policy_denied, eliminating cross-department token theft entirely.",
       "details": [
         [
           "Address",
@@ -1418,35 +1473,31 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
         ],
         [
           "Policy",
-          "policy-retail.yaml"
+          "Per-sandbox (policy-retail.yaml)"
+        ],
+        [
+          "Finance sandbox",
+          "→ retail-finance-mcp.openshell.svc:9090 ONLY"
+        ],
+        [
+          "Sales sandbox",
+          "→ retail-sales-mcp.openshell.svc:9090 ONLY"
+        ],
+        [
+          "Ops sandbox",
+          "→ retail-ops-mcp.openshell.svc:9090 ONLY"
+        ],
+        [
+          "Cross-department",
+          "BLOCKED — 403 policy_denied"
         ],
         [
           "ALLOW",
-          "retail-*-mcp.openshell.svc:9090 (MCP servers)"
-        ],
-        [
-          "ALLOW",
-          "keycloak-keycloak.apps...:443 (OIDC login/refresh)"
-        ],
-        [
-          "ALLOW",
-          "maas.apps.ocp...:443 (LLM inference)"
-        ],
-        [
-          "ALLOW",
-          "npm/pypi (package installs)"
+          "Keycloak :443, MaaS :443, npm/pypi"
         ],
         [
           "DENY",
-          "trino.trino.svc:8080 → 403 policy_denied"
-        ],
-        [
-          "DENY",
-          "dev.spicedb.svc:50051 → 403 policy_denied"
-        ],
-        [
-          "DENY",
-          "Everything else not in policy"
+          "Trino, SpiceDB, everything else"
         ]
       ]
     },
@@ -1471,6 +1522,110 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
           "Network exfiltration, authorization bypass via direct DB access"
         ]
       ]
+    },
+    "auth_proxy": {
+      "title": "Dashboard Auth Proxy (localhost:8889)",
+      "description": "HTTP proxy running inside the dashboard process. The OIDC access token from Keycloak is held in the dashboard process's memory only — never written to disk. The agent makes plain HTTP requests to :8889, which injects the Authorization: Bearer header before forwarding. Inspired by the Kagenti AuthBridge pattern: agents never see tokens.",
+      "details": [
+        [
+          "Address",
+          "localhost:8889"
+        ],
+        [
+          "Token Storage",
+          "Dashboard process memory only"
+        ],
+        [
+          "PR_SET_DUMPABLE",
+          "0 — blocks /proc/PID/mem, /environ, /maps"
+        ],
+        [
+          "ptrace",
+          "Blocked for sibling processes"
+        ],
+        [
+          "Agent Access",
+          "Zero — plain HTTP in, authed HTTP out"
+        ],
+        [
+          "Pattern",
+          "Kagenti AuthBridge: agents never see tokens"
+        ]
+      ]
+    },
+    "s_authproxy": {
+      "title": "Dashboard Auth Proxy",
+      "description": "The OIDC access token lives only in the dashboard process memory. The agent process makes plain HTTP requests to localhost:8889. The auth proxy injects the Authorization: Bearer header before forwarding. The agent never sees, stores, or transmits the token.",
+      "details": [
+        [
+          "Token Location",
+          "Dashboard process memory only"
+        ],
+        [
+          "Agent Sees",
+          "Plain HTTP (no auth headers)"
+        ],
+        [
+          "Proxy Adds",
+          "Authorization: Bearer <token>"
+        ],
+        [
+          "Disk",
+          "Token never written to disk"
+        ],
+        [
+          "Pattern",
+          "Kagenti AuthBridge"
+        ]
+      ]
+    },
+    "s_dumpable": {
+      "title": "PR_SET_DUMPABLE=0",
+      "description": "Linux prctl(PR_SET_DUMPABLE, 0) on the dashboard process prevents any sibling process from reading /proc/PID/mem, /proc/PID/environ, or /proc/PID/maps. Combined with ptrace_scope restrictions, the agent process has zero access to the token in the dashboard's memory.",
+      "details": [
+        [
+          "Blocks",
+          "/proc/PID/mem, /proc/PID/environ, /proc/PID/maps"
+        ],
+        [
+          "ptrace",
+          "Blocked for sibling processes"
+        ],
+        [
+          "Scope",
+          "Dashboard process (token holder)"
+        ],
+        [
+          "Defends",
+          "Token extraction via /proc or ptrace"
+        ]
+      ]
+    },
+    "s_sqlglot": {
+      "title": "sqlglot AST Validation",
+      "description": "Every SQL query is parsed using sqlglot (Trino dialect) into an AST. Every Table node is validated against the allowed catalog and schema via SpiceDB. Queries referencing information_schema, system tables, or unauthorized schemas are rejected. Parse errors fail closed (deny).",
+      "details": [
+        [
+          "Parser",
+          "sqlglot (Trino dialect)"
+        ],
+        [
+          "Validates",
+          "Every Table node in the AST"
+        ],
+        [
+          "Rejects",
+          "information_schema, system tables, other schemas"
+        ],
+        [
+          "Parse Error",
+          "Fail closed (deny)"
+        ],
+        [
+          "Defends",
+          "SQL injection, schema enumeration"
+        ]
+      ]
     }
   },
   "flows": {
@@ -1486,7 +1641,7 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
           "num": 1
         },
         {
-          "text": "2. Keycloak issues RS256 JWT (aud: spiffe://retail-demo/...)",
+          "text": "2. Keycloak issues RS256 JWT (held in dashboard memory only) (aud: spiffe://retail-demo/...)",
           "mode": "arrow",
           "from": "keycloak",
           "to": "hermes",
@@ -1515,15 +1670,36 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
           "badge": "✓"
         },
         {
-          "text": "3. Agent calls MCP tool via OPA Proxy (JWT in Authorization: Bearer header)",
+          "text": "3. Agent sends plain HTTP to Auth Proxy (:8889)",
           "mode": "arrow",
           "from": "hermes",
+          "to": "auth_proxy",
+          "color": "#f0883e",
+          "num": 3,
+          "fromBottom": true,
+          "toTop": true
+        },
+        {
+          "text": "⬡ Credential: Auth Proxy injects JWT — agent never sees token",
+          "mode": "lightup",
+          "target": "s_authproxy",
+          "badge": "✓"
+        },
+        {
+          "text": "⬡ Credential: PR_SET_DUMPABLE=0 — /proc blocked for siblings",
+          "mode": "lightup",
+          "target": "s_dumpable",
+          "badge": "✓"
+        },
+        {
+          "text": "3b. Auth Proxy forwards with Authorization: Bearer header",
+          "mode": "arrow",
+          "from": "auth_proxy",
           "to": "opa_proxy",
-          "color": "#58a6ff",
+          "color": "#f0883e",
           "num": 3,
           "fromRight": true,
           "toLeft": true,
-          "yOff": -8,
           "glow": "sandbox"
         },
         {
@@ -1667,6 +1843,12 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
           "mode": "lightup",
           "target": "mcp",
           "badge": 9
+        },
+        {
+          "text": "⬡ Authorization: sqlglot AST — SQL tables validated against SpiceDB",
+          "mode": "lightup",
+          "target": "s_sqlglot",
+          "badge": "✓"
         },
         {
           "text": "10. SpiceDB: CheckPermission(user:sally, dataset:orders)",
@@ -1754,7 +1936,7 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
           "num": 1
         },
         {
-          "text": "2. Keycloak issues RS256 JWT (aud: spiffe://retail-demo/...)",
+          "text": "2. Keycloak issues RS256 JWT (held in dashboard memory only) (aud: spiffe://retail-demo/...)",
           "mode": "arrow",
           "from": "keycloak",
           "to": "hermes",
@@ -1783,15 +1965,36 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
           "badge": "✓"
         },
         {
-          "text": "3. Agent calls MCP tool via OPA Proxy (JWT in Authorization: Bearer header)",
+          "text": "3. Agent sends plain HTTP to Auth Proxy (:8889)",
           "mode": "arrow",
           "from": "hermes",
+          "to": "auth_proxy",
+          "color": "#f0883e",
+          "num": 3,
+          "fromBottom": true,
+          "toTop": true
+        },
+        {
+          "text": "⬡ Credential: Auth Proxy injects JWT — agent never sees token",
+          "mode": "lightup",
+          "target": "s_authproxy",
+          "badge": "✓"
+        },
+        {
+          "text": "⬡ Credential: PR_SET_DUMPABLE=0 — /proc blocked for siblings",
+          "mode": "lightup",
+          "target": "s_dumpable",
+          "badge": "✓"
+        },
+        {
+          "text": "3b. Auth Proxy forwards with Authorization: Bearer header",
+          "mode": "arrow",
+          "from": "auth_proxy",
           "to": "opa_proxy",
-          "color": "#58a6ff",
+          "color": "#f0883e",
           "num": 3,
           "fromRight": true,
           "toLeft": true,
-          "yOff": -8,
           "glow": "sandbox"
         },
         {
@@ -1937,6 +2140,12 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
           "badge": 9
         },
         {
+          "text": "⬡ Authorization: sqlglot AST — SQL tables validated against SpiceDB",
+          "mode": "lightup",
+          "target": "s_sqlglot",
+          "badge": "✓"
+        },
+        {
           "text": "10. SpiceDB: CheckPermission(user:sally, catalog:finance)",
           "mode": "arrow",
           "from": "mcp",
@@ -1994,15 +2203,36 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
       "label": "Missing JWT (401)",
       "steps": [
         {
-          "text": "1. Request sent without Authorization header",
+          "text": "1. Agent sends plain HTTP to Auth Proxy (:8889)",
           "mode": "arrow",
           "from": "hermes",
+          "to": "auth_proxy",
+          "color": "#f0883e",
+          "num": 1,
+          "fromBottom": true,
+          "toTop": true
+        },
+        {
+          "text": "⬡ Credential: Auth Proxy injects JWT — agent never sees token",
+          "mode": "lightup",
+          "target": "s_authproxy",
+          "badge": "✓"
+        },
+        {
+          "text": "⬡ Credential: PR_SET_DUMPABLE=0 — /proc blocked for siblings",
+          "mode": "lightup",
+          "target": "s_dumpable",
+          "badge": "✓"
+        },
+        {
+          "text": "1b. Auth Proxy forwards with Authorization: Bearer header",
+          "mode": "arrow",
+          "from": "auth_proxy",
           "to": "opa_proxy",
-          "color": "#58a6ff",
+          "color": "#f0883e",
           "num": 1,
           "fromRight": true,
           "toLeft": true,
-          "yOff": -8,
           "glow": "sandbox"
         },
         {
@@ -2316,7 +2546,7 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
           ]
         },
         {
-          "step": 6,
+          "step": 9,
           "label": "③ MCP tool call with JWT",
           "actions": [
             {
@@ -2326,12 +2556,12 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
           ]
         },
         {
-          "step": 15,
+          "step": 18,
           "label": "④ K8s Service → Envoy",
           "actions": []
         },
         {
-          "step": 17,
+          "step": 20,
           "label": "⑤ Envoy → AuthBridge (ext_authz)",
           "actions": [
             {
@@ -2341,7 +2571,7 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
           ]
         },
         {
-          "step": 20,
+          "step": 23,
           "label": "⑥ AuthBridge: JWKS signature check (kid lookup)",
           "actions": [
             {
@@ -2421,7 +2651,7 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
           ]
         },
         {
-          "step": 22,
+          "step": 25,
           "label": "⑦ JWT signature valid, claims verified ✓",
           "actions": [
             {
@@ -2500,7 +2730,7 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
           ]
         },
         {
-          "step": 24,
+          "step": 27,
           "label": "⑧ Request → MCP Server (identity in headers)",
           "actions": [
             {
@@ -2518,7 +2748,7 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
           ]
         },
         {
-          "step": 25,
+          "step": 28,
           "label": "⑨ MCP extracts preferred_username: sally",
           "actions": [
             {
@@ -2532,7 +2762,7 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
           ]
         },
         {
-          "step": 26,
+          "step": 30,
           "label": "⑩ SpiceDB: CheckPermission",
           "actions": [
             {
@@ -2563,7 +2793,7 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
           ]
         },
         {
-          "step": 28,
+          "step": 32,
           "label": "⑪ Permission: ALLOWED ✓",
           "actions": [
             {
@@ -2599,7 +2829,7 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
           ]
         },
         {
-          "step": 29,
+          "step": 33,
           "label": "⑫ Trino query executes",
           "actions": [
             {
@@ -2623,7 +2853,7 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
           ]
         },
         {
-          "step": 31,
+          "step": 35,
           "label": "⑬ Query results returned",
           "phase": "response",
           "actions": [
@@ -2665,7 +2895,7 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
           ]
         },
         {
-          "step": 32,
+          "step": 36,
           "label": "⑭ Response → Hermes",
           "actions": [
             {
@@ -2675,7 +2905,7 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
           ]
         },
         {
-          "step": 33,
+          "step": 37,
           "label": "⑮ Results displayed to Sally",
           "actions": [
             {
@@ -2756,7 +2986,7 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
           ]
         },
         {
-          "step": 6,
+          "step": 9,
           "label": "③ MCP tool call with JWT in Authorization header",
           "actions": [
             {
@@ -2766,12 +2996,12 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
           ]
         },
         {
-          "step": 15,
+          "step": 18,
           "label": "④ K8s Service → Envoy",
           "actions": []
         },
         {
-          "step": 17,
+          "step": 20,
           "label": "⑤ Envoy → AuthBridge (ext_authz)",
           "actions": [
             {
@@ -2781,7 +3011,7 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
           ]
         },
         {
-          "step": 20,
+          "step": 23,
           "label": "⑥ AuthBridge: RS256 signature + claims verified",
           "actions": [
             {
@@ -2807,7 +3037,7 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
           ]
         },
         {
-          "step": 22,
+          "step": 25,
           "label": "⑦ JWT signature valid, claims verified ✓",
           "actions": [
             {
@@ -2866,7 +3096,7 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
           ]
         },
         {
-          "step": 24,
+          "step": 27,
           "label": "⑧ Request → MCP Server (identity in headers)",
           "actions": [
             {
@@ -2880,7 +3110,7 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
           ]
         },
         {
-          "step": 25,
+          "step": 28,
           "label": "⑨ MCP extracts preferred_username: sally",
           "actions": [
             {
@@ -2890,7 +3120,7 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
           ]
         },
         {
-          "step": 26,
+          "step": 30,
           "label": "⑩ SpiceDB: CheckPermission",
           "actions": [
             {
@@ -2921,7 +3151,7 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
           ]
         },
         {
-          "step": 28,
+          "step": 32,
           "label": "⑪ Permission: DENIED ✗",
           "actions": [
             {
@@ -2957,7 +3187,7 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
           ]
         },
         {
-          "step": 29,
+          "step": 33,
           "label": "⑫ Access denied → MCP returns error",
           "phase": "error",
           "actions": [
@@ -3002,7 +3232,7 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
           ]
         },
         {
-          "step": 30,
+          "step": 34,
           "label": "⑬ Error response → Hermes",
           "actions": [
             {
@@ -3012,7 +3242,7 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
           ]
         },
         {
-          "step": 31,
+          "step": 35,
           "label": "⑭ Permission denied shown to Sally",
           "actions": [
             {
@@ -3028,7 +3258,7 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
       ],
       "noauth": [
         {
-          "step": 1,
+          "step": 4,
           "label": "① Request without JWT",
           "actions": [
             {
@@ -3038,22 +3268,22 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
           ]
         },
         {
-          "step": 8,
+          "step": 11,
           "label": "② K8s Service → Envoy",
           "actions": []
         },
         {
-          "step": 10,
+          "step": 13,
           "label": "③ Envoy → AuthBridge (ext_authz)",
           "actions": []
         },
         {
-          "step": 12,
+          "step": 15,
           "label": "④ Missing Authorization header",
           "actions": []
         },
         {
-          "step": 13,
+          "step": 16,
           "label": "⑤ AuthBridge returns 401",
           "phase": "error",
           "actions": [
@@ -3095,12 +3325,12 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
           ]
         },
         {
-          "step": 14,
+          "step": 17,
           "label": "⑥ Envoy rejects request",
           "actions": []
         },
         {
-          "step": 15,
+          "step": 18,
           "label": "⑦ 401 Unauthorized → Hermes",
           "actions": [
             {

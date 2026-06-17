@@ -311,12 +311,14 @@ sandbox:agent-trino-demo#allowed_catalogs@catalog:lakehouse
 ### Phase 5: Zero-Trust Identity — Kagenti + AuthBridge (**COMPLETE** — 2026-06-17)
 1. ~~Deploy Kagenti infrastructure~~ → ZTWIM/SPIRE operator, Kagenti operator, SPIFFE trust domain `retail-demo`
 2. ~~MCP servers with AuthBridge~~ → Envoy sidecar (proxy-init, spiffe-helper, client-registration, envoy-proxy) on all 3 MCP servers
-3. ~~Hermes token forwarding~~ → OIDC access token (not ID token) written to `/tmp/hermes-oidc-token`, httpx request event hook re-reads on every MCP call
+3. ~~Hermes token forwarding~~ → Dashboard auth proxy holds token in memory, forwards MCP requests with Authorization header
 4. ~~AuthBridge JWT validation~~ → Inbound JWT validated via Keycloak JWKS, no JWT = 401
-5. ~~Token refresh~~ → Background thread refreshes access token via Keycloak refresh endpoint before 5-min expiry
+5. ~~Token refresh~~ → In-process refresh loop in dashboard, rotates access token before 5-min expiry
 6. ~~Keycloak token exchange~~ → Configured and tested (preferred_username survives exchange), not yet active on inbound path
-7. ~~OPA hardening~~ → Trino and SpiceDB removed from sandbox egress policy — agent cannot bypass MCP
+7. ~~OPA hardening~~ → Per-sandbox policies: each sandbox can ONLY reach its own MCP server
 8. ~~CTF document~~ → `examples/retail/CAPTURE_THE_FLAG.md` with 7 Dune-themed trials
+9. ~~Dashboard auth proxy~~ → Token never on disk, `PR_SET_DUMPABLE=0` blocks `/proc/PID/mem` reads, `ptrace_scope=1` prevents sibling process ptrace
+10. ~~sqlglot SQL parsing~~ → Replaced regex-based table extraction with AST parser (Trino dialect), blocks information_schema and cross-schema access
 
 **Implementation details (Phase 5)**:
 - MCP server app on port 8080 (authbridge-envoy hardcodes ext_proc gRPC on 9090)
@@ -326,6 +328,9 @@ sandbox:agent-trino-demo#allowed_catalogs@catalog:lakehouse
 - Token exchange Keycloak setup: `retail-mcp` client, `retail-mcp-aud` scope, `spiffe-mcp-aud` scope on hermes-dashboard
 - Demo script: `examples/retail/deploy/demo-zero-trust.sh`
 - Trino Query UI: `examples/retail/deploy/trino-query-ui-chart/`
+- Dashboard auth proxy: Kagenti-inspired pattern for OpenShell single-container sandboxes. Dashboard process holds OIDC token in memory, runs HTTP proxy on `:8889`, adds Authorization header to MCP requests. Gateway/agent sends plain HTTP to `localhost:8889`. Token never touches disk. `PR_SET_DUMPABLE=0` + `ptrace_scope=1` prevent memory reads by sibling processes.
+- Per-sandbox OPA: `sed` generates per-department policy at deploy time from `policy-retail.yaml` template — only that department's MCP server is allowed. Cross-department MCP traffic blocked at network level.
+- SQL parsing: sqlglot AST parser (Trino dialect) replaces regex. Validates every `Table` node's catalog and schema. Fails closed on parse errors. Requires at least one in-scope table reference.
 
 ---
 

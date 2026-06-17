@@ -24,8 +24,7 @@ RUN chmod -R a+rX /opt/hermes && \
 # We also add a patch to auto-discover MCP tools at dashboard startup.
 COPY examples/retail/deploy/patches/fix-tui-wildcard-bind.py /tmp/fix-tui-wildcard-bind.py
 RUN python3 /tmp/fix-tui-wildcard-bind.py \
-      /opt/hermes/hermes_cli/web_server.py \
-      /opt/hermes/tools/mcp_tool.py && \
+      /opt/hermes/hermes_cli/web_server.py && \
     rm /tmp/fix-tui-wildcard-bind.py
 
 # Bake non-secret config

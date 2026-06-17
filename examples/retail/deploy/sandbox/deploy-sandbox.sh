@@ -81,7 +81,12 @@ $(echo "$DEST_CA" | sed 's/^/      /')
     name: openshell
 ROUTEEOF
 
-  # 3. Create sandbox
+  # 3. Generate per-department OPA policy (only this dept's MCP server)
+  local dept_policy="/tmp/policy-retail-${dept}.yaml"
+  sed "/retail-.*-mcp/{/retail-${dept}-mcp/!{N;d;}}" \
+      "$DEPLOY_DIR/policy-retail.yaml" > "$dept_policy"
+
+  # 4. Create sandbox
   echo "--- Sandbox: ${sandbox_name} ---"
   openshell sandbox delete "$sandbox_name" -g "$GATEWAY" 2>/dev/null || true
   sleep 3
@@ -90,7 +95,7 @@ ROUTEEOF
     --name "$sandbox_name" \
     --from "$HERMES_IMAGE" \
     --upload "$upload_dir:/sandbox/.hermes" \
-    --policy "$DEPLOY_DIR/policy-retail.yaml" \
+    --policy "$dept_policy" \
     --no-tty \
     -- env OPENAI_API_KEY="${OPENAI_API_KEY}" \
            GATEWAY_ALLOW_ALL_USERS=true \
@@ -101,7 +106,7 @@ ROUTEEOF
            /usr/local/bin/hermes-start.sh </dev/null >/dev/null 2>&1 &
   local create_pid=$!
 
-  # 4. Wait for Ready
+  # 5. Wait for Ready
   echo "Waiting for ${sandbox_name}..."
   for i in $(seq 1 60); do
     local status
@@ -119,7 +124,7 @@ ROUTEEOF
     sleep 10
   done
 
-  # 5. Expose service
+  # 6. Expose service
   echo "--- Exposing ${sandbox_name} ---"
   for i in $(seq 1 10); do
     if openshell service expose "$sandbox_name" 9119 -g "$GATEWAY" 2>&1; then
@@ -129,8 +134,8 @@ ROUTEEOF
     sleep 3
   done
 
-  # 6. Cleanup
-  rm -rf "$upload_dir"
+  # 7. Cleanup
+  rm -rf "$upload_dir" "$dept_policy"
 
   echo "  Dashboard: https://${route_host}"
   echo "  Profile:   ${profile}"

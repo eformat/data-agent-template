@@ -62,6 +62,7 @@ src/data_agent_core/scaffold/generate.py
 src/data_agent_core/testing/__init__.py
 src/data_agent_core/testing/fixtures.py
 src/data_agent_core/testing/plugin.py
+src/data_agent_core/testing/retail_sample_data.py
 src/data_agent_core/testing/sample_data.py
 src/data_agent_core/tools/__init__.py
 src/data_agent_core/tools/metadata.py
@@ -74,4 +75,6 @@ tests/test_duckdb_tool.py
 tests/test_metadata_tools.py
 tests/test_mock_permission.py
 tests/test_output.py
+tests/test_retail_config.py
+tests/test_retail_sample_data.py
 tests/test_sql_blocker.py

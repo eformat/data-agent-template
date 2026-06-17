@@ -33,10 +33,15 @@ PUBLIC_URL="${HERMES_PUBLIC_URL:-https://retail-hermes.apps.prelude-m6wl4-vs9lb.
 
 # Write config.yaml files ONLY on first boot (when configs still have the
 # placeholder or don't exist). On PVC-backed restarts, preserve user edits.
+# Derive department from active profile for MCP upstream URL
+DEPT=$(echo "$ACTIVE" | sed 's/retail-//')
+export MCP_UPSTREAM_URL="http://retail-${DEPT}-mcp.openshell.svc.cluster.local:9090"
+export MCP_PROXY_PORT=8889
+
 if [ -n "${OPENAI_API_KEY:-}" ]; then
   for profile_dir in /sandbox/.hermes/profiles/retail-*/; do
     [ -d "$profile_dir" ] || continue
-    dept=$(basename "$profile_dir" | sed 's/retail-//')
+    pdept=$(basename "$profile_dir" | sed 's/retail-//')
     cat > "${profile_dir}/config.yaml" << CFGEOF
 model:
   provider: custom
@@ -47,8 +52,8 @@ dashboard:
   theme: redhat
   public_url: "${PUBLIC_URL}"
 mcp_servers:
-  retail-${dept}:
-    url: http://retail-${dept}-mcp.openshell.svc.cluster.local:9090/mcp
+  retail-${pdept}:
+    url: http://127.0.0.1:${MCP_PROXY_PORT}/mcp
 CFGEOF
   done
 
