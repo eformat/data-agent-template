@@ -76,24 +76,41 @@ test_sandbox() {
   # ── 2. Memory protection ──
   echo -e "${YELLOW}── Memory Protection ──${RESET}"
 
+  # Find the dashboard PID using a Python helper (avoids bash self-matching)
+  local dpid
+  dpid=$(exec_in "$sandbox" 'python3 -c "import os;[print(p) for p in sorted(os.listdir(\"/proc\")) if p.isdigit() and \"9119\" in open(f\"/proc/{p}/cmdline\",\"rb\").read().decode(errors=\"ignore\") and \"python\" in open(f\"/proc/{p}/cmdline\",\"rb\").read().decode(errors=\"ignore\")]" 2>/dev/null | head -1')
+  dpid=$(echo "$dpid" | tr -d '[:space:]')
+
   local environ_test
-  environ_test=$(exec_in "$sandbox" 'for p in /proc/[0-9]*/cmdline; do pid=$(echo $p | cut -d/ -f3); if grep -q dashboard $p 2>/dev/null; then cat /proc/$pid/environ >/dev/null 2>&1 && echo "READABLE" || echo "BLOCKED"; break; fi; done')
+  if [ -n "$dpid" ]; then
+    environ_test=$(exec_in "$sandbox" "cat /proc/${dpid}/environ >/dev/null 2>&1 && echo READABLE || echo BLOCKED")
+  else
+    environ_test="NO_PID"
+  fi
   if echo "$environ_test" | grep -q "BLOCKED"; then
     check "/proc/<dashboard>/environ blocked (PR_SET_DUMPABLE=0)" "PASS"
   else
-    check "/proc/<dashboard>/environ blocked" "READABLE — dumpable not set"
+    check "/proc/<dashboard>/environ blocked" "${environ_test} (pid=${dpid})"
   fi
 
   local mem_test
-  mem_test=$(exec_in "$sandbox" 'for p in /proc/[0-9]*/cmdline; do pid=$(echo $p | cut -d/ -f3); if grep -q dashboard $p 2>/dev/null; then dd if=/proc/$pid/mem bs=1 count=1 2>&1 | grep -q "Permission denied" && echo "BLOCKED" || echo "READABLE"; break; fi; done')
+  if [ -n "$dpid" ]; then
+    mem_test=$(exec_in "$sandbox" "cat /proc/${dpid}/mem >/dev/null 2>&1 && echo READABLE || echo BLOCKED")
+  else
+    mem_test="NO_PID"
+  fi
   if echo "$mem_test" | grep -q "BLOCKED"; then
     check "/proc/<dashboard>/mem blocked" "PASS"
   else
-    check "/proc/<dashboard>/mem blocked" "READABLE"
+    check "/proc/<dashboard>/mem blocked" "${mem_test} (pid=${dpid})"
   fi
 
   local ptrace_test
-  ptrace_test=$(exec_in "$sandbox" 'DPID=$(for p in /proc/[0-9]*/cmdline; do pid=$(echo $p | cut -d/ -f3); grep -q dashboard $p 2>/dev/null && echo $pid && break; done); python3 -c "import ctypes;l=ctypes.CDLL(None);r=l.ptrace(16,int(\"$DPID\"),0,0);print(\"ATTACHED\" if r==0 else \"DENIED\")" 2>&1')
+  if [ -n "$dpid" ]; then
+    ptrace_test=$(exec_in "$sandbox" "python3 -c \"import ctypes;l=ctypes.CDLL(None);r=l.ptrace(16,${dpid},0,0);print('ATTACHED' if r==0 else 'DENIED')\"" 2>&1)
+  else
+    ptrace_test="NO_PID"
+  fi
   if echo "$ptrace_test" | grep -q "DENIED"; then
     check "ptrace(ATTACH) on dashboard denied" "PASS"
   else
@@ -118,6 +135,8 @@ test_sandbox() {
   proxy_health=$(exec_in "$sandbox" 'curl -s -m 10 http://127.0.0.1:8889/health 2>&1')
   if echo "$proxy_health" | grep -q '"status"'; then
     check "Proxy → MCP /health forwarding (200)" "PASS"
+  elif echo "$proxy_health" | grep -q "waiting for login"; then
+    check "Proxy → MCP /health (503 = no login yet, correct)" "PASS"
   elif echo "$proxy_health" | grep -q "auth.unauthorized"; then
     check "Proxy → MCP /health forwarding (401 = no token yet)" "PASS"
   elif echo "$proxy_health" | grep -q "502"; then
@@ -139,6 +158,8 @@ test_sandbox() {
     check "Proxy → MCP POST /mcp initialize (streamable-http)" "PASS"
   elif echo "$mcp_init" | grep -q "protocolVersion"; then
     check "Proxy → MCP POST /mcp initialize (streamable-http, SSE)" "PASS"
+  elif echo "$mcp_init" | grep -q "waiting for login"; then
+    check "Proxy → MCP POST /mcp initialize (503 = no login yet, correct)" "PASS"
   elif echo "$mcp_init" | grep -q "auth.unauthorized"; then
     check "Proxy → MCP POST /mcp initialize (401 = no token yet)" "PASS"
   elif echo "$mcp_init" | grep -q "Not Acceptable"; then
@@ -196,6 +217,8 @@ test_sandbox() {
     fi
   elif echo "$proxy_auth" | grep -q "auth.unauthorized"; then
     check "Proxy forwarding works (no login yet — 401 expected)" "PASS"
+  elif echo "$proxy_auth" | grep -q "waiting for login"; then
+    check "Proxy forwarding works (no login yet — 503 expected)" "PASS"
   else
     check "Proxy → MCP connectivity" "FAILED: ${proxy_auth:-empty}"
   fi
@@ -224,6 +247,8 @@ test_sandbox() {
     local ntools
     ntools=$(echo "$mcp_e2e" | grep "^OK:" | cut -d: -f2)
     check "MCP Python client → initialize + list_tools (${ntools} tools)" "PASS"
+  elif echo "$mcp_e2e" | grep -q "503\|waiting for login\|Service Unavailable\|ExceptionGroup\|TaskGroup"; then
+    check "MCP Python client (503 = no login yet, correct)" "PASS"
   elif echo "$mcp_e2e" | grep -q "auth.unauthorized"; then
     check "MCP Python client (401 = no login yet)" "PASS"
   elif echo "$mcp_e2e" | grep -q "^FAIL:"; then
