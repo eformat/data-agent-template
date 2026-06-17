@@ -24,14 +24,6 @@ network_policies:
       - path: /opt/hermes/.venv/bin/python*
       - path: /usr/bin/python*
       - path: /usr/bin/curl
-  spicedb:
-    name: spicedb-auth
-    endpoints:
-      - host: dev.spicedb.svc.cluster.local
-        port: 50051
-    binaries:
-      - path: /opt/hermes/.venv/bin/python*
-      - path: /usr/bin/python*
   inference:
     name: maas-inference
     endpoints:
@@ -92,11 +84,3 @@ network_policies:
       - path: /opt/hermes/.venv/bin/python*
       - path: /usr/bin/python*
       - path: /usr/local/bin/node
-  trino:
-    name: trino-lakehouse
-    endpoints:
-      - host: trino.trino.svc.cluster.local
-        port: 8080
-    binaries:
-      - path: /opt/hermes/.venv/bin/python*
-      - path: /usr/bin/python*

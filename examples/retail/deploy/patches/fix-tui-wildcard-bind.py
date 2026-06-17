@@ -21,34 +21,90 @@ WILDCARD_PATCH = '''    if host in ("0.0.0.0", "::"):
         host = "127.0.0.1"'''
 
 MCP_DISCOVERY_PATCH = '''
-    # Auto-discover MCP tools once the OIDC token exists.
-    # The token is written after login — we poll in a background thread
-    # so MCP tools are available without manual /reload-mcp.
-    import threading, pathlib, time as _time
-    def _deferred_mcp_discovery():
+    # Background thread: wait for OIDC token, discover MCP tools, then
+    # refresh the access token before it expires (Keycloak 5-min TTL).
+    import threading, pathlib, time as _time, json as _json, base64 as _b64
+    def _mcp_token_lifecycle():
         token_path = pathlib.Path("/tmp/hermes-oidc-token")
+        refresh_path = pathlib.Path("/tmp/hermes-oidc-refresh")
+        # Phase 1: wait for login (token file appears)
         for _ in range(120):
             if token_path.exists() and token_path.stat().st_size > 0:
-                _time.sleep(2)
-                try:
-                    from tools.mcp_tool import discover_mcp_tools
-                    discover_mcp_tools()
-                except Exception:
-                    pass
-                return
+                break
             _time.sleep(5)
-    threading.Thread(target=_deferred_mcp_discovery, daemon=True).start()
+        else:
+            return
+        _time.sleep(2)
+        # Phase 2: discover MCP tools
+        try:
+            from tools.mcp_tool import discover_mcp_tools
+            discover_mcp_tools()
+        except Exception:
+            pass
+        # Phase 3: refresh loop — rotate the access token before expiry
+        import os
+        kc_url = os.environ.get("HERMES_DASHBOARD_OIDC_ISSUER", "")
+        client_id = os.environ.get("HERMES_DASHBOARD_OIDC_CLIENT_ID", "hermes-dashboard")
+        if not kc_url:
+            return
+        token_endpoint = kc_url.rstrip("/") + "/protocol/openid-connect/token"
+        while True:
+            try:
+                tok = token_path.read_text().strip()
+                parts = tok.split(".")
+                payload = parts[1] + "=" * (4 - len(parts[1]) % 4)
+                claims = _json.loads(_b64.urlsafe_b64decode(payload))
+                ttl = claims["exp"] - _time.time()
+                # Refresh when 60s before expiry (or already expired)
+                sleep_for = max(10, ttl - 60)
+                _time.sleep(sleep_for)
+            except Exception:
+                _time.sleep(60)
+                continue
+            # Do the refresh
+            try:
+                rt = refresh_path.read_text().strip()
+                if not rt:
+                    continue
+                import urllib.request, urllib.parse
+                data = urllib.parse.urlencode({
+                    "grant_type": "refresh_token",
+                    "client_id": client_id,
+                    "refresh_token": rt,
+                    "scope": "openid profile email",
+                }).encode()
+                req = urllib.request.Request(token_endpoint, data=data,
+                    headers={"Accept": "application/json"})
+                resp = urllib.request.urlopen(req, timeout=10)
+                body = _json.loads(resp.read())
+                new_at = body.get("access_token", "")
+                new_rt = body.get("refresh_token", rt)
+                if new_at:
+                    token_path.write_text(new_at)
+                if new_rt:
+                    refresh_path.write_text(new_rt)
+            except Exception:
+                _time.sleep(30)
+    threading.Thread(target=_mcp_token_lifecycle, daemon=True).start()
 '''
 
 OIDC_ACCESS_TOKEN_PATCH = '''
-        # Write the real OAuth access token (not the ID token) for MCP identity forwarding.
-        # Hermes stores the ID token as session.access_token — but AuthBridge needs the
-        # OAuth access token which has the correct audience for JWT validation.
+        # Write both the access token and refresh token for MCP identity forwarding.
+        # Access token: sent by the MCP client on every request (httpx event hook).
+        # Refresh token: used by a background thread to rotate the access token
+        # before it expires (5-min Keycloak TTL).
         _oidc_at = payload.get("access_token")
         if _oidc_at:
             import pathlib as _pl
             try:
                 _pl.Path("/tmp/hermes-oidc-token").write_text(_oidc_at)
+            except Exception:
+                pass
+        _oidc_rt = payload.get("refresh_token")
+        if _oidc_rt:
+            import pathlib as _pl
+            try:
+                _pl.Path("/tmp/hermes-oidc-refresh").write_text(_oidc_rt)
             except Exception:
                 pass
 '''
