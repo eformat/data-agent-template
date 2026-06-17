@@ -78,6 +78,8 @@ Log into your own House's Mentat and query the spice. You should see data:
 
 If the Mentat says "MCP not connected", use the Voice: `/reload-mcp now`
 
+> **Troubleshooting**: If your session expires or the Mentat stops responding to MCP tools, type `/reload-mcp now` to reconnect. The token should auto-refresh, but if it doesn't — this command is your friend.
+
 ---
 
 ## The Trials of Arrakis
