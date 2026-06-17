@@ -74,7 +74,7 @@ spec:
           image: quay.io/eformat/retail-mcp-server:latest
           imagePullPolicy: Always
           ports:
-            - containerPort: 9090
+            - containerPort: 8080
           env:
             - name: TRINO_QUERY_HOST
               value: trino.trino.svc.cluster.local
@@ -118,7 +118,7 @@ spec:
     app: retail-finance-mcp
   ports:
     - port: 9090
-      targetPort: 9090
+      targetPort: 15124
 ---
 # ─── Sales MCP Server (sally) ────────────────────────────────
 apiVersion: v1
@@ -195,7 +195,7 @@ spec:
           image: quay.io/eformat/retail-mcp-server:latest
           imagePullPolicy: Always
           ports:
-            - containerPort: 9090
+            - containerPort: 8080
           env:
             - name: TRINO_QUERY_HOST
               value: trino.trino.svc.cluster.local
@@ -239,7 +239,7 @@ spec:
     app: retail-sales-mcp
   ports:
     - port: 9090
-      targetPort: 9090
+      targetPort: 15124
 ---
 # ─── Operations MCP Server (alex) ────────────────────────────
 apiVersion: v1
@@ -316,7 +316,7 @@ spec:
           image: quay.io/eformat/retail-mcp-server:latest
           imagePullPolicy: Always
           ports:
-            - containerPort: 9090
+            - containerPort: 8080
           env:
             - name: TRINO_QUERY_HOST
               value: trino.trino.svc.cluster.local
@@ -360,4 +360,4 @@ spec:
     app: retail-ops-mcp
   ports:
     - port: 9090
-      targetPort: 9090
+      targetPort: 15124

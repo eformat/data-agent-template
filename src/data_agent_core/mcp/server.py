@@ -98,9 +98,35 @@ def _check_spicedb_permission(user: str, dataset: str, permission: str = "query"
 
 
 def _extract_tables_from_sql(sql: str, catalog: str, schema: str) -> list[str]:
-    """Extract table names from SQL."""
-    pattern = rf"{re.escape(catalog)}\.{re.escape(schema)}\.(\w+)"
-    return list(set(re.findall(pattern, sql, re.IGNORECASE)))
+    """Extract and validate table references from SQL using AST parsing.
+
+    Parses with sqlglot's Trino dialect. Every table reference must be in
+    the allowed catalog.schema. Raises ValueError for out-of-scope references.
+    """
+    import sqlglot
+    from sqlglot import exp
+
+    try:
+        parsed = sqlglot.parse_one(sql, dialect="trino")
+    except sqlglot.errors.ParseError as e:
+        raise ValueError(f"SQL parse error: {e}")
+
+    tables: set[str] = set()
+    for table in parsed.find_all(exp.Table):
+        if not table.catalog and not table.db:
+            continue
+
+        ref_catalog = (table.catalog or "").lower()
+        ref_schema = (table.db or "").lower()
+
+        if ref_catalog != catalog.lower() or ref_schema != schema.lower():
+            raise ValueError(
+                f"Access denied: {table.catalog}.{table.db}.{table.name} "
+                f"is outside the allowed scope ({catalog}.{schema})"
+            )
+        tables.add(table.name)
+
+    return list(tables)
 
 
 def _deny(reason: str) -> dict:
@@ -171,7 +197,17 @@ def create_mcp_server(config: DomainConfig):
         if not user:
             return _deny("No authenticated user. Log in via the dashboard.")
 
-        tables = _extract_tables_from_sql(sql, config.trino_catalog, config.trino_schema)
+        try:
+            tables = _extract_tables_from_sql(sql, config.trino_catalog, config.trino_schema)
+        except ValueError as e:
+            return _deny(str(e))
+
+        if not tables:
+            return _deny(
+                f"No tables found. Queries must reference "
+                f"{config.trino_catalog}.{config.trino_schema}.<table>"
+            )
+
         for table in tables:
             check = _check_spicedb_permission(user, table)
             if not check.get("allowed"):

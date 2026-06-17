@@ -302,11 +302,30 @@ sandbox:agent-trino-demo#allowed_catalogs@catalog:lakehouse
 
 **Implementation details (Phase 4)**:
 - OpenShell gateway patched with RFC 8441 (HTTP/2 WebSocket extended CONNECT) — `quay.io/eformat/openshell-gateway:0.0.62-h2ws`
-- Sandbox architecture: Hermes Gateway (:18642) + Dashboard (:19119) + socat bridge (:9119) inside network namespace
-- OAuth proxy (reencrypt TLS) → OpenShell gateway → supervisor relay → sandbox
+- Sandbox architecture: Hermes Gateway (:18642) + Dashboard (:9119, gated OIDC) inside network namespace
+- Hermes OIDC login via Keycloak (realm `prelude-m6wl4-vs9lb`, client `hermes-dashboard`)
 - API key injected via `env` command on `openshell sandbox create` (no secrets in image)
-- OPA policy controls all sandbox network egress (MCP, SpiceDB, Trino, inference, npm, pypi)
+- OPA policy controls all sandbox network egress (MCP only — Trino and SpiceDB removed from sandbox policy)
 - See `examples/retail/README.md` for full architecture diagrams (Mermaid)
+
+### Phase 5: Zero-Trust Identity — Kagenti + AuthBridge (**COMPLETE** — 2026-06-17)
+1. ~~Deploy Kagenti infrastructure~~ → ZTWIM/SPIRE operator, Kagenti operator, SPIFFE trust domain `retail-demo`
+2. ~~MCP servers with AuthBridge~~ → Envoy sidecar (proxy-init, spiffe-helper, client-registration, envoy-proxy) on all 3 MCP servers
+3. ~~Hermes token forwarding~~ → OIDC access token (not ID token) written to `/tmp/hermes-oidc-token`, httpx request event hook re-reads on every MCP call
+4. ~~AuthBridge JWT validation~~ → Inbound JWT validated via Keycloak JWKS, no JWT = 401
+5. ~~Token refresh~~ → Background thread refreshes access token via Keycloak refresh endpoint before 5-min expiry
+6. ~~Keycloak token exchange~~ → Configured and tested (preferred_username survives exchange), not yet active on inbound path
+7. ~~OPA hardening~~ → Trino and SpiceDB removed from sandbox egress policy — agent cannot bypass MCP
+8. ~~CTF document~~ → `examples/retail/CAPTURE_THE_FLAG.md` with 7 Dune-themed trials
+
+**Implementation details (Phase 5)**:
+- MCP server app on port 8080 (authbridge-envoy hardcodes ext_proc gRPC on 9090)
+- Envoy inbound listener on :15124, routes to static `local_app` cluster on :8080
+- K8s Service targetPort changed to 15124 (OVN-K bypasses pod iptables for Service VIP traffic)
+- Port 443 excluded from outbound interception (authbridge needs Keycloak JWKS)
+- Token exchange Keycloak setup: `retail-mcp` client, `retail-mcp-aud` scope, `spiffe-mcp-aud` scope on hermes-dashboard
+- Demo script: `examples/retail/deploy/demo-zero-trust.sh`
+- Trino Query UI: `examples/retail/deploy/trino-query-ui-chart/`
 
 ---
 

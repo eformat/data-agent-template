@@ -33,6 +33,7 @@ mcp = [
     "trino>=0.329",
     "authzed",
     "grpcio>=1.60",
+    "sqlglot>=26.0",
 ]
 eval = [
     "mlflow>=3.10",

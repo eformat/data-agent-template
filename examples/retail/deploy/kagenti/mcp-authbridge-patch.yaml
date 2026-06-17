@@ -31,7 +31,7 @@ spec:
             - name: PROXY_UID
               value: "1337"
             - name: OUTBOUND_PORTS_EXCLUDE
-              value: ""
+              value: "50051,8080,443"
             - name: POD_IP
               valueFrom:
                 fieldRef:
@@ -141,6 +141,12 @@ spec:
             - name: authproxy-routes
               mountPath: /etc/authproxy
               readOnly: true
+            - name: envoy-config-real
+              mountPath: /etc/envoy
+              readOnly: true
+            - name: ab-runtime
+              mountPath: /etc/authbridge
+              readOnly: true
           resources:
             limits:
               cpu: 200m
@@ -160,3 +166,9 @@ spec:
         - name: authproxy-routes
           configMap:
             name: authproxy-routes
+        - name: envoy-config-real
+          configMap:
+            name: authbridge-envoy-config-shared
+        - name: ab-runtime
+          configMap:
+            name: authbridge-runtime-config

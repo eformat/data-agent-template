@@ -1,5 +1,6 @@
 .PHONY: install test validate dev schema lint clean \
-       retail-deploy retail-restart retail-expose retail-build retail-trino-ui retail-status
+       retail-deploy retail-restart retail-expose retail-build retail-trino-ui \
+       retail-mcp-deploy retail-mcp-restart retail-kagenti retail-demo retail-status
 
 install:
 	pip install -e ".[all]"
@@ -48,8 +49,27 @@ retail-restart-%: ## Restart one sandbox: make retail-restart-finance
 retail-expose: ## Re-expose all sandbox services (idempotent)
 	./examples/retail/deploy/sandbox/expose-all.sh
 
+retail-mcp-deploy: ## Deploy MCP server manifests (ConfigMaps + Deployments + Services)
+	oc apply -f examples/retail/deploy/mcp-server/deployment.yaml
+	oc apply -f examples/retail/deploy/kagenti/authbridge-manual.yaml
+	oc apply -f examples/retail/deploy/kagenti/authbridge-envoy-config.yaml
+	oc apply -f examples/retail/deploy/kagenti/authproxy-routes.yaml
+	oc apply -f examples/retail/deploy/kagenti/agentruntime-mcp.yaml
+
+retail-mcp-restart: ## Restart all MCP server pods (pull latest image)
+	oc delete pods -n openshell -l app=retail-finance-mcp
+	oc delete pods -n openshell -l app=retail-sales-mcp
+	oc delete pods -n openshell -l app=retail-ops-mcp
+
+retail-kagenti: ## Deploy Kagenti infrastructure (SPIRE, operator, Keycloak config)
+	./examples/retail/deploy/kagenti/deploy-kagenti.sh
+	./examples/retail/deploy/kagenti/setup-keycloak-token-exchange.sh
+
 retail-trino-ui: ## Deploy Trino Query UI to trino namespace
 	helm upgrade --install trino-query-ui examples/retail/deploy/trino-query-ui-chart -n trino
+
+retail-demo: ## Run the zero-trust identity demo
+	./examples/retail/deploy/demo-zero-trust.sh
 
 retail-status: ## Show sandbox status
 	@openshell sandbox list -g $${OPENSHELL_GATEWAY:-prelude2-final} 2>/dev/null

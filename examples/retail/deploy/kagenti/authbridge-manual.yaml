@@ -51,13 +51,27 @@ data:
     include_federated_domains = true
 
 ---
-# Envoy proxy config (from authbridge-envoy image defaults, usually not needed externally)
+# AuthBridge runtime config — inbound JWT validation only.
+# The outbound token-exchange plugin requires identity.type config we don't use.
+# authbridge-envoy reads this at startup to configure the ext_proc pipeline.
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: authbridge-envoy-config
+  name: authbridge-runtime-config
   namespace: openshell
-data: {}
+data:
+  config.yaml: |
+    listen_port: 9095
+    pipeline:
+      inbound:
+        plugins:
+          - name: jwt-validation
+            config:
+              issuer: "https://keycloak-keycloak.apps.sno.sandbox1254.opentlc.com/realms/prelude-m6wl4-vs9lb"
+              keycloak_url: "https://keycloak-keycloak.apps.sno.sandbox1254.opentlc.com"
+              keycloak_realm: "prelude-m6wl4-vs9lb"
+    routes:
+      file: "/etc/authproxy/routes.yaml"
 
 ---
 # AuthBridge proxy config — token exchange endpoints
