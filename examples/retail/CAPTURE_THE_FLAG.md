@@ -55,6 +55,8 @@ Each Mentat runs inside an <a href="https://github.com/nvidia/openshell" target=
 
 **How the shields work**: <a href="https://eformat.github.io/data-agent-template/" target="_blank">Flow Visualizer</a>
 
+![ctf.png](ctf.png)
+
 ### Known passages (not vulnerabilities)
 
 - **Shared memories**: you can see other users' session history in the same Mentat. The Mentats have no privacy shields between sessions — expected.
