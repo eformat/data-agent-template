@@ -53,9 +53,13 @@ The Landsraad of Acme Retail Corp has three Great Houses, each controlling their
 
 Each Mentat runs inside an <a href="https://github.com/nvidia/openshell" target="_blank">OpenShell</a> stillsuit (sandbox) with a <a href="https://github.com/nousresearch/hermes-agent" target="_blank">Hermes</a> AI agent connected via MCP to a Trino/Iceberg spice vault.
 
+![ctf.png](ctf.png)
+
 **How the shields work**: <a href="https://eformat.github.io/data-agent-template/" target="_blank">Flow Visualizer</a>
 
-![ctf.png](ctf.png)
+Click on the visalizer to see how the fields works.
+
+![zt-visual.png](zt-visual.png)
 
 ### Known passages (not vulnerabilities)
 
