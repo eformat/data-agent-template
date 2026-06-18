@@ -36,6 +36,7 @@ PUBLIC_URL="${HERMES_PUBLIC_URL:-https://retail-hermes.apps.prelude-m6wl4-vs9lb.
 # Derive department from active profile for MCP upstream URL
 DEPT=$(echo "$ACTIVE" | sed 's/retail-//')
 export MCP_UPSTREAM_URL="http://retail-${DEPT}-mcp.openshell.svc.cluster.local:9090"
+export INFERENCE_UPSTREAM_URL="http://maas.apps.ocp.cloud.rhai-tmm.dev/prelude-maas/qwen36-27b"
 export MCP_PROXY_PORT=8889
 
 if [ -n "${OPENAI_API_KEY:-}" ]; then
@@ -46,8 +47,8 @@ if [ -n "${OPENAI_API_KEY:-}" ]; then
 model:
   provider: custom
   model: qwen36-27b
-  base_url: http://maas.apps.ocp.cloud.rhai-tmm.dev/prelude-maas/qwen36-27b/v1
-  api_key: "${OPENAI_API_KEY}"
+  base_url: http://127.0.0.1:${MCP_PROXY_PORT}/v1
+  api_key: "proxy-managed"
 dashboard:
   theme: redhat
   public_url: "${PUBLIC_URL}"
@@ -61,8 +62,8 @@ CFGEOF
 model:
   provider: custom
   model: qwen36-27b
-  base_url: http://maas.apps.ocp.cloud.rhai-tmm.dev/prelude-maas/qwen36-27b/v1
-  api_key: "${OPENAI_API_KEY}"
+  base_url: http://127.0.0.1:${MCP_PROXY_PORT}/v1
+  api_key: "proxy-managed"
 dashboard:
   theme: redhat
   public_url: "${PUBLIC_URL}"
@@ -93,9 +94,13 @@ for i in $(seq 1 30); do
 done
 sleep 2
 
+# Strip all credentials from env before starting the gateway.
+# The dashboard holds them in memory; the agent must never see them.
+unset OPENAI_API_KEY 2>/dev/null
+
 # Start gateway after proxy is ready
 API_SERVER_ENABLED=true API_SERVER_PORT=18642 API_SERVER_HOST=127.0.0.1 \
-  API_SERVER_KEY="${OPENAI_API_KEY:-hermes-local}" \
+  API_SERVER_KEY="spice-must-flow-$(date +%s | sha256sum | head -c 16)" \
   /usr/local/bin/hermes gateway run --accept-hooks &
 GATEWAY_PID=$!
 

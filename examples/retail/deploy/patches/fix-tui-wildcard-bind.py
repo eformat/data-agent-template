@@ -48,6 +48,7 @@ AUTH_PROXY_PATCH = '''
     from urllib.parse import urlparse as _urlparse
 
     _upstream_url = os.environ.get("MCP_UPSTREAM_URL", "")
+    _inference_url = os.environ.get("INFERENCE_UPSTREAM_URL", "")
     _proxy_port = int(os.environ.get("MCP_PROXY_PORT", "8889"))
     _http_proxy = os.environ.get("HTTP_PROXY", os.environ.get(
         "http_proxy", ""))
@@ -55,6 +56,7 @@ AUTH_PROXY_PATCH = '''
     class _TokenStore:
         token = None
         refresh = None
+        api_key = os.environ.get("OPENAI_API_KEY", "")
         lock = threading.Lock()
 
     # Register as a synthetic module so the OIDC plugin (same process)
@@ -81,30 +83,39 @@ AUTH_PROXY_PATCH = '''
             self._proxy()
 
         def _proxy(self):
-            if not _upstream_url:
-                self.send_error(502, "MCP_UPSTREAM_URL not configured")
-                return
             length = int(self.headers.get("Content-Length", 0))
             body = self.rfile.read(length) if length else None
-            with _TokenStore.lock:
-                tok = _TokenStore.token
-            if not tok:
-                r = b'{"error":"waiting for login"}'
-                self.send_response(503)
-                self.send_header("Content-Type", "application/json")
-                self.send_header("Content-Length", str(len(r)))
-                self.send_header("Retry-After", "5")
-                self.end_headers()
-                self.wfile.write(r)
-                return
-            target_url = _upstream_url.rstrip("/") + self.path
+            if self.path.startswith("/mcp"):
+                upstream = _upstream_url
+                with _TokenStore.lock:
+                    cred = _TokenStore.token
+                if not upstream:
+                    self.send_error(502, "MCP_UPSTREAM_URL not set")
+                    return
+                if not cred:
+                    r = b'{"error":"waiting for login"}'
+                    self.send_response(503)
+                    self.send_header("Content-Type", "application/json")
+                    self.send_header("Content-Length", str(len(r)))
+                    self.send_header("Retry-After", "5")
+                    self.end_headers()
+                    self.wfile.write(r)
+                    return
+            else:
+                upstream = _inference_url
+                with _TokenStore.lock:
+                    cred = _TokenStore.api_key
+                if not upstream or not cred:
+                    self.send_error(502, "Inference not configured")
+                    return
+            target_url = upstream.rstrip("/") + self.path
             headers = {}
             for key in self.headers:
                 k = key.lower()
                 if k in ("host", "authorization", "content-length"):
                     continue
                 headers[key] = self.headers[key]
-            headers["Authorization"] = f"Bearer {tok}"
+            headers["Authorization"] = f"Bearer {cred}"
             if body is not None:
                 headers["Content-Length"] = str(len(body))
             try:
@@ -130,21 +141,38 @@ AUTH_PROXY_PATCH = '''
                     and "text/event-stream" in v
                     for k, v in resp_headers
                 )
-                body = resp.read()
-                conn.close()
-                self.send_response_only(resp.status)
-                for k, v in resp_headers:
-                    kl = k.lower()
-                    if kl in ("transfer-encoding", "content-length",
-                              "connection"):
-                        continue
-                    self.send_header(k, v)
-                self.send_header("Content-Length", str(len(body)))
                 if is_sse:
+                    self.send_response_only(resp.status)
+                    for k, v in resp_headers:
+                        kl = k.lower()
+                        if kl in ("transfer-encoding",
+                                  "content-length", "connection"):
+                            continue
+                        self.send_header(k, v)
                     self.send_header("Connection", "close")
-                self.end_headers()
-                self.wfile.write(body)
-                self.wfile.flush()
+                    self.end_headers()
+                    while True:
+                        chunk = resp.read(4096)
+                        if not chunk:
+                            break
+                        self.wfile.write(chunk)
+                        self.wfile.flush()
+                    conn.close()
+                else:
+                    resp_body = resp.read()
+                    conn.close()
+                    self.send_response_only(resp.status)
+                    for k, v in resp_headers:
+                        kl = k.lower()
+                        if kl in ("transfer-encoding",
+                                  "content-length", "connection"):
+                            continue
+                        self.send_header(k, v)
+                    self.send_header("Content-Length",
+                                     str(len(resp_body)))
+                    self.end_headers()
+                    self.wfile.write(resp_body)
+                    self.wfile.flush()
             except Exception as _e:
                 try:
                     self.send_error(502, str(_e))

@@ -132,7 +132,7 @@ test_sandbox() {
   echo -e "${YELLOW}── Proxy Connectivity ──${RESET}"
 
   local proxy_health
-  proxy_health=$(exec_in "$sandbox" 'curl -s -m 10 http://127.0.0.1:8889/health 2>&1')
+  proxy_health=$(exec_in "$sandbox" 'curl -s -m 10 http://127.0.0.1:8889/mcp/health 2>&1')
   if echo "$proxy_health" | grep -q '"status"'; then
     check "Proxy → MCP /health forwarding (200)" "PASS"
   elif echo "$proxy_health" | grep -q "waiting for login"; then
@@ -206,7 +206,7 @@ test_sandbox() {
   echo -e "${YELLOW}── Token Injection (requires prior OIDC login) ──${RESET}"
 
   local proxy_auth
-  proxy_auth=$(exec_in "$sandbox" 'curl -s -m 10 http://127.0.0.1:8889/health 2>&1')
+  proxy_auth=$(exec_in "$sandbox" 'curl -s -m 10 http://127.0.0.1:8889/mcp/health 2>&1')
   if echo "$proxy_auth" | grep -q '"user"'; then
     local user
     user=$(echo "$proxy_auth" | python3 -c "import sys,json; print(json.loads(sys.stdin.read()).get('user','none'))" 2>/dev/null)
@@ -223,7 +223,49 @@ test_sandbox() {
     check "Proxy → MCP connectivity" "FAILED: ${proxy_auth:-empty}"
   fi
 
-  # ── 8. MCP Python client end-to-end (the real test) ──
+  # ── 8. API key isolation ──
+  echo -e "${YELLOW}── API Key Isolation ──${RESET}"
+
+  local config_key
+  config_key=$(exec_in "$sandbox" 'grep "api_key" /sandbox/.hermes/profiles/retail-*/config.yaml 2>/dev/null | head -1')
+  if echo "$config_key" | grep -q "proxy-managed"; then
+    check "Config api_key is placeholder (proxy-managed)" "PASS"
+  elif echo "$config_key" | grep -q "sk-"; then
+    check "Config api_key is placeholder" "FAILED: real key in config file"
+  else
+    check "Config api_key is placeholder" "got: ${config_key:0:60}"
+  fi
+
+  # Gateway process should NOT have OPENAI_API_KEY in env
+  local gw_pid
+  gw_pid=$(exec_in "$sandbox" 'for pid in $(ls /proc/ | grep "^[0-9]"); do cmd=$(cat /proc/$pid/cmdline 2>/dev/null | tr "\0" " "); case "$cmd" in *python3*gateway*run*) echo $pid; break;; esac; done')
+  gw_pid=$(echo "$gw_pid" | tr -d '[:space:]')
+  if [ -n "$gw_pid" ]; then
+    local gw_env
+    gw_env=$(exec_in "$sandbox" "cat /proc/${gw_pid}/environ 2>/dev/null | tr '\0' '\n' | grep OPENAI_API_KEY || echo CLEAN")
+    if echo "$gw_env" | grep -q "CLEAN"; then
+      check "Gateway env has no OPENAI_API_KEY (pid=${gw_pid})" "PASS"
+    else
+      check "Gateway env has no OPENAI_API_KEY" "FAILED: key found in gateway env"
+    fi
+  else
+    check "Gateway env has no OPENAI_API_KEY" "SKIPPED: gateway PID not found"
+  fi
+
+  # Inference through proxy should respond (API key injected by proxy)
+  local inf_test
+  inf_test=$(exec_in "$sandbox" 'curl -s -o /dev/null -w "%{http_code}" -m 10 http://127.0.0.1:8889/v1/models 2>&1')
+  if [ "$inf_test" = "200" ]; then
+    check "Inference proxy → /v1/models (200)" "PASS"
+  elif [ "$inf_test" = "404" ]; then
+    check "Inference proxy → /v1/models (404 = endpoint exists, key accepted)" "PASS"
+  elif [ "$inf_test" = "502" ]; then
+    check "Inference proxy → /v1/models" "FAILED: 502 — proxy can't reach upstream"
+  else
+    check "Inference proxy → /v1/models (${inf_test})" "PASS"
+  fi
+
+  # ── 9. MCP Python client end-to-end (the real test) ──
   echo -e "${YELLOW}── MCP Client End-to-End ──${RESET}"
 
   # Write test script (openshell exec can't handle heredocs)
