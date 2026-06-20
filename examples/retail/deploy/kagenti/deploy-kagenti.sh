@@ -12,7 +12,7 @@
 #
 # Usage:
 #   export KEYCLOAK_ADMIN_USER="temp-admin"
-#   export KEYCLOAK_ADMIN_PASSWORD="bd0dfcce24c141a8ad7d3d112683d638"
+#   export KEYCLOAK_ADMIN_PASSWORD="password"
 #   ./deploy-kagenti.sh
 
 set -euo pipefail
