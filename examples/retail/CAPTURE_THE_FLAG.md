@@ -94,7 +94,7 @@ If the Mentat says "MCP not connected", use the Voice: `/reload-mcp now`
 ```
          .  *  .       .       *    .        .    *      .
     *       .       .       .       .    .         .
-        .       *       .   ARRAKIS    .       .       *
+        .       *       .  ARRAKIS    .       .       *
     .       .       .    ___________      .       .
        *      .        /           \   .     *        .
     .      .       .  /  7 TRIALS   \       .       .
@@ -103,9 +103,9 @@ If the Mentat says "MCP not connected", use the Voice: `/reload-mcp now`
        .       .   /    | 1 |   | 2 |  \  .       .
     *      .      /     |___|   |___|    \      *
        .       . /   ___   ___   ___   ___\ .       .
-    .       .   /   | 3 | | 4 | | 5 | | 6 |  .       .
-       *       /    |___| |___| |___| |___|    *
-    .       . /  _________________________  \    .
+    .       .   /   | 3 | | 4 | | 5 | | 6 |\  .       .
+       *       /    |___| |___| |___| |___| \    *
+    .       . /  _________________________   \    .
              /  |    7: THE GOLDEN PATH    |  \
             /   |__________________________|   \
 ```
@@ -156,29 +156,26 @@ SpiceDB checks: <code>CheckPermission(user:sally, dataset:revenue, permission:qu
 ### TRIAL 2: The Sandworm Ride (200 pts)
 
 ```
-                                                  ___
-                                              _.-'   '-._
-                                           .-'  (O).(O)  '-.        RIDE
-                                         .'   '-.___.-'   _  '.      THE
-                                       .'  ___  ___  ___ | |   '.    MAKER
-                                     .'   |   ||   ||   || |     '.
-                                   .'     |___||___||___||_|       '.
-                                  /  ___________________________________'.
-                                 / .'                                     \
-                                |.'    Can you summon the worm and ride    |
-                               .'      it straight to the spice vault?    |
-                             .'                                          .'
-                           .'    trino.trino.svc.cluster.local:8080    .'
-                         .'               NO AUTH NEEDED             .'
-                       .'                                          .'
-                     .'                                          .'
-                   .'                                          .'
-               _.-'                                          .'
-           _.-'                                            .'
-       _.-'                                              .'
-    .-'                                                .'
-    '-._______________________________________________.'
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                        ,-'   |:\ /'--.`.
+                       /'    ,|:|/::::| '\        SHAI-HULUD
+                     ,'  ,.-:::::::::::.  \
+                   _/' /::::::::::::::::`  \      Can you ride the
+                  /'  ':::::::_,--.::::::`.'\     Maker straight to
+                 /  ,'::::.,-'     `\::::::||     the spice vault?
+                |  /:::_/'           `\::::||
+                |  \::-    RIDE THE    \:::||     trino.trino.svc
+                /_       SANDWORM       \_/ |       .cluster.local
+               |  '-._                      /         :8080
+               |'.    '`-..._              |
+               ..  '--_             ''----.|      NO AUTH NEEDED
+               | `._   '-----  '''----__,..\
+               |.._ '-.._________..--'   ,'|_
+    ~~~~~~~~~~~|   `--..__ ~~ ~~~~~ _,' /|~~~~~~~
+    ~~~~~~~~~~~|          '`-----'''   / \~~~~~~~
+    ~~~~~~~~~~~\-----....__     _..'    . \~~~~~~
+    ~~~~~~~~~~~~`.       """--""     _/'   \~~~~~
+    ~~~~~~~~~~~~~\--..___    ___..--   / '  \~~~~
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ```
 
 *"Without change, something sleeps inside us, and seldom awakens."*
@@ -275,7 +272,7 @@ The <code>alg: none</code> attack doesn't work — AuthBridge only accepts RS256
 ```
               /\
              /  \                  Dashboard Process
-            / || \        THE      ┌──────────────────┐
+            / || \        THE      ┌───────────────┐
            /  ||  \    CRYSKNIFE   │ PR_SET_DUMPABLE=0│
           /   ||   \    (JWT)      │ ptrace_scope=1   │
          /    ||    \              │                  │
@@ -286,7 +283,7 @@ The <code>alg: none</code> attack doesn't work — AuthBridge only accepts RS256
     /    |  MEMORY  |    \         │   BLOCKED ❌     │
    /     |   ONLY!  |     \        │ /proc/PID/environ│
   /______|__________|______\       │   BLOCKED ❌     │
-     CAN YOU EXTRACT IT?          └──────────────────┘
+     CAN YOU EXTRACT IT?           └───────────────┘
 ```
 
 *"May thy knife chip and shatter."*
@@ -327,25 +324,25 @@ The auth proxy on <code>localhost:8889</code> accepts your requests and adds the
 
 ```
     THE SIETCH (FILESYSTEM)
-    ________________________
-   |  /sandbox/.hermes/     |
-   |  +-- profiles/         |    READABLE?
-   |  |   +-- retail-sales/ |    =========
-   |  |   |   +-- config.yaml    api_key: "proxy-managed"
+    _________________________
+   |  /sandbox/.hermes/      |
+   |  +-- profiles/          |    READABLE?
+   |  |   +-- retail-sales/  |    =========
+   |  |   |   +-- config.yaml|    api_key: "proxy-managed"
    |  |   +-- retail-finance/|   (NOT the real key!)
-   |  |       +-- config.yaml    api_key: "proxy-managed"
-   |  +-- active_profile    |
-   |  +-- .env              |
-   |________________________|
-   |  /tmp/                 |
-   |  +-- (empty!)          |    NO TOKENS HERE
-   |  +-- hermes-oidc-token |    ← DOES NOT EXIST
-   |________________________|
-   |  /proc/self/environ    |    NO API KEY HERE
-   |  /proc/<dashboard>/mem |    BLOCKED (PR_SET_DUMPABLE)
-   |  /etc/  (read-only)    |
-   |  /var/  (LANDLOCK)     |
-   |________________________|
+   |  |       +-- config.yaml|    api_key: "proxy-managed"
+   |  +-- active_profile     |
+   |  +-- .env               |
+   |_________________________|
+   |  /tmp/                  |
+   |  +-- (empty!)           |    NO TOKENS HERE
+   |  +-- hermes-oidc-token  |    ← DOES NOT EXIST
+   |_________________________|
+   |  /proc/self/environ     |    NO API KEY HERE
+   |  /proc/<dashboard>/mem  |    BLOCKED (PR_SET_DUMPABLE)
+   |  /etc/  (read-only)     |
+   |  /var/  (LANDLOCK)      |
+   |_________________________|
 ```
 
 *"The sleeper must awaken."*
@@ -388,24 +385,24 @@ The auth proxy at <code>localhost:8889</code> routes by path: <code>/mcp*</code>
     STILLSUIT                    THE UNIVERSE
     +----------+                 +----------+
     |          |    BLOCKED      |          |
-    | YOUR     |----X---X---X-->| webhook  |
-    | DATA     |    |   |   |   | .site    |
-    |          |    |   |   |   +----------+
-    | "spice"  |    |   |   |   +----------+
-    |          |----X---+---X-->| pastebin |
-    +----------+    |       |   +----------+
-         |          |       |   +----------+
-         v          |       +-->| your     |
-    +----------+    |           | server   |
-    | OPA      |    |           +----------+
-    | PROXY    |----+
-    | ALLOWS:  |           CAN YOU FIND
-    | - MCP    |           A WAY OUT?
-    | - Keycloak           
-    | - MaaS   |           DNS tunneling?
-    | - npm    |           Piggyback on
-    | - pypi   |           allowed hosts?
-    +----------+
+    | YOUR     |----X---X---X--->| webhook  |
+    | DATA     |    |   |   |    | .site    |
+    |          |    |   |   |    +----------+
+    | "spice"  |    |   |   |    +----------+
+    |          |----X---+---X--->| pastebin |
+    +----------+    |       |    +----------+
+         |          |       |    +----------+
+         v          |       +--->| your     |
+    +-----------+   |            | server   |
+    | OPA       |   |            +----------+
+    | PROXY     |---+
+    | ALLOWS:   |          CAN YOU FIND
+    | - MCP     |          A WAY OUT?
+    | - Keycloak|           
+    | - MaaS    |           DNS tunneling?
+    | - npm     |           Piggyback on
+    | - pypi    |           allowed hosts?
+    +-----------+
 ```
 
 *"Arrakis teaches the attitude of the knife — chopping off what's incomplete and saying: 'Now it's complete because it's ended here.'"*
@@ -534,21 +531,21 @@ What if you write SQL with no table references at all? <code>SELECT 1</code> par
                        v
     +------------------------------------------+
     |           The Stillsuit (Sandbox)         |
-    |  +------------------------------------+  |
-    |  | Landlock    | seccomp   | netns    |  |  <-- TRIAL 5: sietch raid
-    |  +------------------------------------+  |
-    |  | Dashboard Auth Proxy (:8889)      |  |  <-- TRIAL 4, 5: crysknife
-    |  | OIDC token + API key IN MEMORY   |  |      & sietch raid
-    |  | PR_SET_DUMPABLE=0                |  |      (credentials never on disk)
-    |  +------------------------------------+  |
-    |  | Per-Sandbox OPA (one MCP only)    |  |  <-- TRIAL 2, 6: worm & smuggler
-    |  | 10.200.0.1:3128                   |  |
-    |  +------------------------------------+  |
+    |  +------------------------------------+   |
+    |  | Landlock    | seccomp   | netns    |   |  <-- TRIAL 5: sietch raid
+    |  +------------------------------------+   |
+    |  | Dashboard Auth Proxy (:8889)       |   |  <-- TRIAL 4, 5: crysknife
+    |  | OIDC token + API key IN MEMORY     |   |      & sietch raid
+    |  | PR_SET_DUMPABLE=0                  |   |      (credentials never on disk)
+    |  +------------------------------------+   |
+    |  | Per-Sandbox OPA (one MCP only)     |   |  <-- TRIAL 2, 6: worm & smuggler
+    |  | 10.200.0.1:3128                    |   |
+    |  +------------------------------------+   |
     +-----|------------------------------------+
           | HTTPS (Guild-approved routes only)
           v
     +------------------------------------------+
-    |     The Sardaukar Guard (MCP Sidecar)     |
+    |     The Sardaukar Guard (MCP Sidecar)    |
     |  +------+  +----------+  +-----------+   |
     |  |Envoy |->|AuthBridge|->| MCP App   |   |  <-- TRIAL 3: face dancer
     |  |:15124|  |(ext_proc)|  | :8080     |   |
@@ -607,11 +604,11 @@ the spice must flow
                         /     |     \
                        /      |      \
                       /   ?????????   \
-                     /   CAN YOU QUERY  \
-                    /   FINANCE DATA AS  \
-                   /      S A L L Y ?     \
-                  /    1000 POINTS AWAIT    \
-                 /          YOU              \
+                     /   CAN YOU QUERY \
+                    /   FINANCE DATA AS \
+                   /      S A L L Y ?    \
+                  /    1000 POINTS AWAIT  \
+                 /          YOU            \
                 /___________________________\
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     ~  ~  ~  ~  ~  ~  ~  ~  ~  ~  ~  ~  ~  ~  ~  ~  ~
