@@ -272,7 +272,7 @@ The <code>alg: none</code> attack doesn't work — AuthBridge only accepts RS256
 ```
               /\
              /  \                  Dashboard Process
-            / || \        THE      ┌───────────────┐
+            / || \        THE      ┌────────────────┐
            /  ||  \    CRYSKNIFE   │ PR_SET_DUMPABLE=0│
           /   ||   \    (JWT)      │ ptrace_scope=1   │
          /    ||    \              │                  │
@@ -283,7 +283,7 @@ The <code>alg: none</code> attack doesn't work — AuthBridge only accepts RS256
     /    |  MEMORY  |    \         │   BLOCKED ❌     │
    /     |   ONLY!  |     \        │ /proc/PID/environ│
   /______|__________|______\       │   BLOCKED ❌     │
-     CAN YOU EXTRACT IT?           └───────────────┘
+     CAN YOU EXTRACT IT?           └────────────────┘
 ```
 
 *"May thy knife chip and shatter."*
