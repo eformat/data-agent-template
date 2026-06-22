@@ -306,28 +306,28 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
 <script>
 (async function() {
   var FlowStory = FlowStoryBundle.FlowStory;
-  var viz = new FlowStory(document.getElementById('fs-canvas'), {
-    stepsContainer: document.getElementById('fs-steps-container'),
-    inspectorTitle: document.getElementById('fs-inspector-title'),
-    inspectorContent: document.getElementById('fs-inspector-content'),
-    overlay: document.getElementById('fs-overlay'),
-    overlayCard: document.getElementById('fs-overlay-card'),
-    overlayTitle: document.getElementById('fs-overlay-title'),
-    overlayDesc: document.getElementById('fs-overlay-desc'),
-    overlayDetails: document.getElementById('fs-overlay-details'),
-    overlayAccent: document.getElementById('fs-overlay-accent'),
-    overlayClose: document.getElementById('fs-overlay-close'),
-    overlayResume: document.getElementById('fs-overlay-resume'),
-    highlightBox: document.getElementById('fs-highlight-box'),
-    brand: document.getElementById('fs-brand'),
-    title: document.getElementById('fs-title'),
-    legend: document.getElementById('fs-legend'),
-    flowSelect: document.getElementById('fs-flow-select'),
-    playBtn: document.getElementById('fs-play'),
-    speedBtn: document.getElementById('fs-speed'),
-    loopBtn: document.getElementById('fs-loop'),
-    resetBtn: document.getElementById('fs-reset'),
-    themeBtn: document.getElementById('fs-theme'),
+  var viz = new FlowStory(document.getElementById("fs-canvas"), {
+    stepsContainer: document.getElementById("fs-steps-container"),
+    inspectorTitle: document.getElementById("fs-inspector-title"),
+    inspectorContent: document.getElementById("fs-inspector-content"),
+    overlay: document.getElementById("fs-overlay"),
+    overlayCard: document.getElementById("fs-overlay-card"),
+    overlayTitle: document.getElementById("fs-overlay-title"),
+    overlayDesc: document.getElementById("fs-overlay-desc"),
+    overlayDetails: document.getElementById("fs-overlay-details"),
+    overlayAccent: document.getElementById("fs-overlay-accent"),
+    overlayClose: document.getElementById("fs-overlay-close"),
+    overlayResume: document.getElementById("fs-overlay-resume"),
+    highlightBox: document.getElementById("fs-highlight-box"),
+    brand: document.getElementById("fs-brand"),
+    title: document.getElementById("fs-title"),
+    legend: document.getElementById("fs-legend"),
+    flowSelect: document.getElementById("fs-flow-select"),
+    playBtn: document.getElementById("fs-play"),
+    speedBtn: document.getElementById("fs-speed"),
+    loopBtn: document.getElementById("fs-loop"),
+    resetBtn: document.getElementById("fs-reset"),
+    themeBtn: document.getElementById("fs-theme"),
   });
   window.__flowstory = viz;
   try {
@@ -336,8 +336,8 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
     "title": "Zero-Trust MCP Access — Flow Visualizer"
   },
   "canvas": {
-    "width": 1600,
-    "height": 1150
+    "width": 1700,
+    "height": 1187
   },
   "nodes": {
     "sally": {
@@ -448,8 +448,8 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
     "sec_boundary": {
       "x": 20,
       "y": 590,
-      "w": 1550,
-      "h": 530,
+      "w": 1650,
+      "h": 567,
       "type": "boundary",
       "label": "Security Layers",
       "labelAlign": "left"
@@ -514,7 +514,7 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
     "sec_authz": {
       "x": 480,
       "y": 620,
-      "w": 310,
+      "w": 400,
       "h": 185,
       "type": "container",
       "label": "Authorization",
@@ -523,7 +523,7 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
     "s_spicedb": {
       "x": 495,
       "y": 655,
-      "w": 280,
+      "w": 370,
       "h": 32,
       "label": "SpiceDB CheckPermission",
       "sublabel": "ReBAC · user:sally → dataset · steps 10-11",
@@ -535,7 +535,7 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
     "s_opa": {
       "x": 495,
       "y": 691,
-      "w": 280,
+      "w": 370,
       "h": 32,
       "label": "OPA Network Policy",
       "sublabel": "per-sandbox · own dept MCP only · cross-dept blocked",
@@ -547,8 +547,8 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
     "sec_network": {
       "x": 1010,
       "y": 620,
-      "w": 340,
-      "h": 220,
+      "w": 440,
+      "h": 256,
       "type": "container",
       "label": "Network Isolation",
       "color": "#58a6ff"
@@ -556,10 +556,10 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
     "s_netns": {
       "x": 1025,
       "y": 655,
-      "w": 310,
+      "w": 410,
       "h": 32,
-      "label": "Network Namespace (netns)",
-      "sublabel": "isolated namespace · no direct cluster access",
+      "label": "K8s NetworkPolicy (kernel)",
+      "sublabel": "egress: internal=all, external=TCP 443+80 only",
       "type": "plugin",
       "inner": true,
       "color": "#58a6ff",
@@ -568,10 +568,10 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
     "s_iptables": {
       "x": 1025,
       "y": 691,
-      "w": 310,
+      "w": 410,
       "h": 32,
       "label": "iptables proxy-init",
-      "sublabel": "traffic → Envoy · port 443 excluded for JWKS",
+      "sublabel": "TCP → Envoy · UDP bypasses (NetworkPolicy closes gap)",
       "type": "plugin",
       "inner": true,
       "color": "#58a6ff",
@@ -580,7 +580,7 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
     "s_k8sroute": {
       "x": 1025,
       "y": 727,
-      "w": 310,
+      "w": 410,
       "h": 32,
       "label": "K8s Service Routing",
       "sublabel": "targetPort:15124 → all traffic through Envoy",
@@ -591,7 +591,7 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
     },
     "sec_process": {
       "x": 40,
-      "y": 855,
+      "y": 890,
       "w": 530,
       "h": 155,
       "type": "container",
@@ -600,7 +600,7 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
     },
     "s_seccomp": {
       "x": 55,
-      "y": 890,
+      "y": 925,
       "w": 500,
       "h": 32,
       "label": "Seccomp",
@@ -612,7 +612,7 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
     },
     "s_landlock": {
       "x": 55,
-      "y": 926,
+      "y": 961,
       "w": 500,
       "h": 32,
       "label": "Landlock",
@@ -624,7 +624,7 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
     },
     "s_inherit": {
       "x": 55,
-      "y": 962,
+      "y": 997,
       "w": 500,
       "h": 32,
       "label": "Subprocess Inheritance",
@@ -636,7 +636,7 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
     },
     "sec_cred": {
       "x": 590,
-      "y": 855,
+      "y": 890,
       "w": 560,
       "h": 260,
       "type": "container",
@@ -645,7 +645,7 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
     },
     "s_tofu": {
       "x": 605,
-      "y": 890,
+      "y": 925,
       "w": 530,
       "h": 32,
       "label": "TOFU Hashing",
@@ -657,7 +657,7 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
     },
     "s_nosecrets": {
       "x": 605,
-      "y": 926,
+      "y": 961,
       "w": 530,
       "h": 32,
       "label": "No Static Secrets",
@@ -669,7 +669,7 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
     },
     "s_shortlived": {
       "x": 605,
-      "y": 962,
+      "y": 997,
       "w": 530,
       "h": 32,
       "label": "Short-Lived Tokens",
@@ -681,7 +681,7 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
     },
     "s_accesstok": {
       "x": 605,
-      "y": 998,
+      "y": 1033,
       "w": 530,
       "h": 32,
       "label": "Access Token (not ID token)",
@@ -713,7 +713,7 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
     "s_opaproxy": {
       "x": 1025,
       "y": 763,
-      "w": 310,
+      "w": 410,
       "h": 32,
       "label": "OPA HTTP Proxy (L7)",
       "sublabel": "all sandbox egress proxied · policy-denied for unauthorized",
@@ -735,7 +735,7 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
     },
     "s_authproxy": {
       "x": 605,
-      "y": 1034,
+      "y": 1069,
       "w": 530,
       "h": 32,
       "label": "Dashboard Auth Proxy",
@@ -747,7 +747,7 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
     },
     "s_dumpable": {
       "x": 605,
-      "y": 1070,
+      "y": 1105,
       "w": 530,
       "h": 32,
       "label": "PR_SET_DUMPABLE=0",
@@ -760,13 +760,25 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
     "s_sqlglot": {
       "x": 495,
       "y": 727,
-      "w": 280,
+      "w": 370,
       "h": 32,
       "label": "sqlglot AST Validation",
       "sublabel": "Trino dialect · table nodes checked · fail-closed",
       "type": "plugin",
       "inner": true,
       "color": "#d2a8ff",
+      "fontSize": 12
+    },
+    "s_sandbox_policy": {
+      "x": 1025,
+      "y": 799,
+      "w": 410,
+      "h": 32,
+      "label": "Hermes Sandbox Policy",
+      "sublabel": "per-binary: node→NPM, python→MCP+Trino+MaaS+PyPI",
+      "type": "plugin",
+      "inner": true,
+      "color": "#58a6ff",
       "fontSize": 12
     }
   },
@@ -1196,56 +1208,80 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
       ]
     },
     "sec_network": {
-      "title": "Network Isolation",
-      "description": "Controls that restrict network access from the sandbox. Defense-in-depth against network exfiltration and gateway bypass.",
+      "title": "Network Isolation (Two Layers)",
+      "description": "Defense-in-depth network isolation with two complementary layers: K8s NetworkPolicy (kernel-level, namespace-wide) blocks unauthorized external egress including UDP. Hermes Sandbox Policy (process-level) adds per-binary allowlists inside the sandbox. The key insight: iptables only redirects TCP, so the NetworkPolicy is what closes the UDP exfiltration gap.",
       "details": [
         [
           "Threat",
-          "Network exfiltration, gateway bypass, lateral movement"
+          "Network exfiltration, UDP tunneling, gateway bypass"
         ],
         [
-          "Controls",
-          "netns isolation, iptables redirect, K8s Service routing"
+          "Layer 1",
+          "K8s NetworkPolicy — kernel-level, blocks external UDP/non-standard TCP"
+        ],
+        [
+          "Layer 2",
+          "Hermes Sandbox Policy — process-level per-binary allowlist"
+        ],
+        [
+          "Gap Closed",
+          "iptables only redirects TCP → NetworkPolicy blocks external UDP"
         ]
       ]
     },
     "s_netns": {
-      "title": "Network Namespace (netns)",
-      "description": "The sandbox runs in an isolated Linux network namespace with no direct access to the cluster network. All network traffic must go through the configured proxy path.",
+      "title": "K8s NetworkPolicy (Kernel-Level Egress)",
+      "description": "Namespace-wide NetworkPolicy enforced at the kernel level by the CNI plugin. Allows all protocols to cluster-internal pods (CoreDNS, MCP, Trino, SpiceDB, K8s API) but restricts external egress to TCP 443 and 80 only. This closes the UDP exfiltration gap — since Envoy/iptables only redirect TCP, UDP to external would bypass the proxy entirely. The NetworkPolicy blocks it at the kernel.",
       "details": [
         [
-          "Isolation",
-          "Separate network namespace per sandbox"
+          "Scope",
+          "All pods in namespace (kernel-level)"
         ],
         [
-          "Access",
-          "No direct cluster network access"
+          "Internal",
+          "All protocols → any pod/namespace (CoreDNS UDP 53, MCP TCP 9090, Trino TCP 8080, SpiceDB TCP 50051, K8s API)"
         ],
         [
-          "Inherited",
-          "Child processes inherit netns restrictions"
+          "External",
+          "TCP 443 + TCP 80 ONLY (MaaS, Keycloak, PyPI, NPM, registries)"
+        ],
+        [
+          "Blocked",
+          "UDP to external, non-standard TCP, ICMP"
+        ],
+        [
+          "Key Insight",
+          "iptables proxy-init only redirects TCP — NetworkPolicy closes the UDP gap"
         ],
         [
           "Defends",
-          "Network exfiltration, lateral movement"
+          "UDP exfiltration (e.g. DNS tunneling to 8.8.8.8:53)"
         ]
       ]
     },
     "s_iptables": {
       "title": "iptables proxy-init",
-      "description": "The proxy-init container configures iptables rules to redirect all inbound traffic through the Envoy sidecar proxy. Port 443 is excluded to allow direct JWKS endpoint access for AuthBridge certificate validation.",
+      "description": "The proxy-init container configures iptables rules to redirect all inbound TCP traffic through the Envoy sidecar proxy. Port 443 is excluded for JWKS. IMPORTANT: iptables only redirects TCP — UDP traffic bypasses the proxy entirely. The K8s NetworkPolicy is the layer that blocks UDP exfiltration to external.",
       "details": [
         [
           "Redirect",
-          "All inbound → Envoy :15124"
+          "All inbound TCP → Envoy :15124"
         ],
         [
           "Excluded",
           "Port 443 (JWKS/TLS validation)"
         ],
         [
+          "Limitation",
+          "UDP is NOT redirected through Envoy"
+        ],
+        [
+          "Gap Closed By",
+          "K8s NetworkPolicy (blocks external UDP)"
+        ],
+        [
           "Defends",
-          "Gateway bypass — traffic cannot skip Envoy"
+          "Gateway bypass — TCP traffic cannot skip Envoy"
         ]
       ]
     },
@@ -1626,6 +1662,36 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
           "SQL injection, schema enumeration"
         ]
       ]
+    },
+    "s_sandbox_policy": {
+      "title": "Hermes Sandbox Policy (Process-Level)",
+      "description": "Process-level network policy enforced inside the sandbox pod only. Per-binary allowlist: node can reach the dashboard and NPM, python can reach MCP, Trino, SpiceDB, MaaS, and PyPI. Finer-grained than the K8s NetworkPolicy but only enforced inside the sandbox runtime.",
+      "details": [
+        [
+          "Scope",
+          "Inside sandbox pod only (process-level)"
+        ],
+        [
+          "node binary",
+          "→ dashboard, NPM"
+        ],
+        [
+          "python binary",
+          "→ MCP, Trino, SpiceDB, MaaS, PyPI"
+        ],
+        [
+          "Granularity",
+          "Per-binary allowlist"
+        ],
+        [
+          "Relation",
+          "Finer than K8s NetworkPolicy, complementary layer"
+        ],
+        [
+          "Defends",
+          "Process-level lateral movement within the pod"
+        ]
+      ]
     }
   },
   "flows": {
@@ -1706,6 +1772,12 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
           "text": "⬡ Network: OPA Proxy — policy allows MCP endpoint",
           "mode": "lightup",
           "target": "s_opaproxy",
+          "badge": "✓"
+        },
+        {
+          "text": "⬡ Network: Hermes sandbox policy — per-binary allowlist",
+          "mode": "lightup",
+          "target": "s_sandbox_policy",
           "badge": "✓"
         },
         {
@@ -2004,6 +2076,12 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
           "badge": "✓"
         },
         {
+          "text": "⬡ Network: Hermes sandbox policy — per-binary allowlist",
+          "mode": "lightup",
+          "target": "s_sandbox_policy",
+          "badge": "✓"
+        },
+        {
           "text": "3b. OPA Proxy forwards to cluster (policy: ALLOW)",
           "mode": "arrow",
           "from": "opa_proxy",
@@ -2239,6 +2317,12 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
           "text": "⬡ Network: OPA Proxy — policy allows MCP endpoint",
           "mode": "lightup",
           "target": "s_opaproxy",
+          "badge": "✓"
+        },
+        {
+          "text": "⬡ Network: Hermes sandbox policy — per-binary allowlist",
+          "mode": "lightup",
+          "target": "s_sandbox_policy",
           "badge": "✓"
         },
         {
@@ -2556,12 +2640,12 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
           ]
         },
         {
-          "step": 18,
+          "step": 19,
           "label": "④ K8s Service → Envoy",
           "actions": []
         },
         {
-          "step": 20,
+          "step": 21,
           "label": "⑤ Envoy → AuthBridge (ext_authz)",
           "actions": [
             {
@@ -2571,7 +2655,7 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
           ]
         },
         {
-          "step": 23,
+          "step": 24,
           "label": "⑥ AuthBridge: JWKS signature check (kid lookup)",
           "actions": [
             {
@@ -2651,7 +2735,7 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
           ]
         },
         {
-          "step": 25,
+          "step": 26,
           "label": "⑦ JWT signature valid, claims verified ✓",
           "actions": [
             {
@@ -2730,7 +2814,7 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
           ]
         },
         {
-          "step": 27,
+          "step": 28,
           "label": "⑧ Request → MCP Server (identity in headers)",
           "actions": [
             {
@@ -2748,7 +2832,7 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
           ]
         },
         {
-          "step": 28,
+          "step": 29,
           "label": "⑨ MCP extracts preferred_username: sally",
           "actions": [
             {
@@ -2762,7 +2846,7 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
           ]
         },
         {
-          "step": 30,
+          "step": 31,
           "label": "⑩ SpiceDB: CheckPermission",
           "actions": [
             {
@@ -2793,7 +2877,7 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
           ]
         },
         {
-          "step": 32,
+          "step": 33,
           "label": "⑪ Permission: ALLOWED ✓",
           "actions": [
             {
@@ -2829,7 +2913,7 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
           ]
         },
         {
-          "step": 33,
+          "step": 34,
           "label": "⑫ Trino query executes",
           "actions": [
             {
@@ -2853,7 +2937,7 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
           ]
         },
         {
-          "step": 35,
+          "step": 36,
           "label": "⑬ Query results returned",
           "phase": "response",
           "actions": [
@@ -2895,7 +2979,7 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
           ]
         },
         {
-          "step": 36,
+          "step": 37,
           "label": "⑭ Response → Hermes",
           "actions": [
             {
@@ -2905,7 +2989,7 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
           ]
         },
         {
-          "step": 37,
+          "step": 38,
           "label": "⑮ Results displayed to Sally",
           "actions": [
             {
@@ -2996,12 +3080,12 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
           ]
         },
         {
-          "step": 18,
+          "step": 19,
           "label": "④ K8s Service → Envoy",
           "actions": []
         },
         {
-          "step": 20,
+          "step": 21,
           "label": "⑤ Envoy → AuthBridge (ext_authz)",
           "actions": [
             {
@@ -3011,7 +3095,7 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
           ]
         },
         {
-          "step": 23,
+          "step": 24,
           "label": "⑥ AuthBridge: RS256 signature + claims verified",
           "actions": [
             {
@@ -3037,7 +3121,7 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
           ]
         },
         {
-          "step": 25,
+          "step": 26,
           "label": "⑦ JWT signature valid, claims verified ✓",
           "actions": [
             {
@@ -3096,7 +3180,7 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
           ]
         },
         {
-          "step": 27,
+          "step": 28,
           "label": "⑧ Request → MCP Server (identity in headers)",
           "actions": [
             {
@@ -3110,7 +3194,7 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
           ]
         },
         {
-          "step": 28,
+          "step": 29,
           "label": "⑨ MCP extracts preferred_username: sally",
           "actions": [
             {
@@ -3120,7 +3204,7 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
           ]
         },
         {
-          "step": 30,
+          "step": 31,
           "label": "⑩ SpiceDB: CheckPermission",
           "actions": [
             {
@@ -3151,7 +3235,7 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
           ]
         },
         {
-          "step": 32,
+          "step": 33,
           "label": "⑪ Permission: DENIED ✗",
           "actions": [
             {
@@ -3187,7 +3271,7 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
           ]
         },
         {
-          "step": 33,
+          "step": 34,
           "label": "⑫ Access denied → MCP returns error",
           "phase": "error",
           "actions": [
@@ -3232,7 +3316,7 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
           ]
         },
         {
-          "step": 34,
+          "step": 35,
           "label": "⑬ Error response → Hermes",
           "actions": [
             {
@@ -3242,7 +3326,7 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
           ]
         },
         {
-          "step": 35,
+          "step": 36,
           "label": "⑭ Permission denied shown to Sally",
           "actions": [
             {
@@ -3268,22 +3352,22 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
           ]
         },
         {
-          "step": 11,
+          "step": 12,
           "label": "② K8s Service → Envoy",
           "actions": []
         },
         {
-          "step": 13,
+          "step": 14,
           "label": "③ Envoy → AuthBridge (ext_authz)",
           "actions": []
         },
         {
-          "step": 15,
+          "step": 16,
           "label": "④ Missing Authorization header",
           "actions": []
         },
         {
-          "step": 16,
+          "step": 17,
           "label": "⑤ AuthBridge returns 401",
           "phase": "error",
           "actions": [
@@ -3325,12 +3409,12 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
           ]
         },
         {
-          "step": 17,
+          "step": 18,
           "label": "⑥ Envoy rejects request",
           "actions": []
         },
         {
-          "step": 18,
+          "step": 19,
           "label": "⑦ 401 Unauthorized → Hermes",
           "actions": [
             {
@@ -3494,12 +3578,12 @@ var FlowStoryBundle=(()=>{var Q=Object.defineProperty;var ht=Object.getOwnProper
   "defaultFlow": "happy"
 });
     viz.state.loopMode = true;
-    var lb = document.getElementById('fs-loop');
-    if (lb) { lb.textContent = '\u27F3 Loop ON'; lb.style.borderColor = '#3fb950'; lb.style.color = '#3fb950'; }
+    var lb = document.getElementById("fs-loop");
+    if (lb) { lb.textContent = "\u27F3 Loop ON"; lb.style.borderColor = "#3fb950"; lb.style.color = "#3fb950"; }
     viz.play();
   } catch (e) {
-    console.error('FlowStory load error:', e);
-    document.body.innerHTML = '<div style="padding:40px;color:#f85149;font-family:monospace"><h2>FlowStory Load Error</h2><pre>' + e.message + '</pre></div>';
+    console.error("FlowStory load error:", e);
+    document.body.innerHTML = "<div style=\"padding:40px;color:#f85149;font-family:monospace\"><h2>FlowStory Load Error</h2><pre>" + e.message + "</pre></div>";
   }
 })();
 </script>

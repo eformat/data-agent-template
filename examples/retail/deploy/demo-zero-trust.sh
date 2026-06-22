@@ -17,6 +17,15 @@ GATEWAY="${OPENSHELL_GATEWAY:-prelude2-final}"
 KEYCLOAK_URL="${KEYCLOAK_URL:-https://keycloak-keycloak.apps.sno.sandbox1254.opentlc.com}"
 REALM="${KEYCLOAK_REALM:-prelude-m6wl4-vs9lb}"
 
+# Ensure openshell gateway port-forward is running
+if ! ss -tlnp 2>/dev/null | grep -q ':10880 '; then
+  echo "Starting port-forward for openshell gateway..."
+  oc port-forward statefulset/openshell 10880:8080 -n openshell &>/dev/null &
+  PF_PID=$!
+  trap "kill $PF_PID 2>/dev/null" EXIT
+  sleep 2
+fi
+
 # Map departments to their datasets for permission checks
 declare -A DEPT_DATASETS=( [sales]=orders [finance]=revenue [ops]=inventory )
 OWN_DATASET="${DEPT_DATASETS[$DEPT]}"
