@@ -24,7 +24,9 @@ metadata:
   name: agent-egress-lockdown
   namespace: openshell
 spec:
-  podSelector: {}
+  podSelector:
+    matchLabels:
+      openshell.ai/managed-by: openshell
   policyTypes:
     - Egress
   egress:
