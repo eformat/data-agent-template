@@ -51,6 +51,12 @@ model:
   api_key: "proxy-managed"
 dashboard:
   theme: redhat
+$([ -n "${HERMES_DASHBOARD_OIDC_ISSUER:-}" ] && cat << OAUTHEOF
+  oauth:
+    client_id: "${HERMES_DASHBOARD_OIDC_CLIENT_ID}"
+    portal_url: "${HERMES_DASHBOARD_OIDC_ISSUER}"
+OAUTHEOF
+)
   public_url: "${PUBLIC_URL}"
 mcp_servers:
   retail-${pdept}:
@@ -66,6 +72,12 @@ model:
   api_key: "proxy-managed"
 dashboard:
   theme: redhat
+$([ -n "${HERMES_DASHBOARD_OIDC_ISSUER:-}" ] && cat << OAUTHEOF
+  oauth:
+    client_id: "${HERMES_DASHBOARD_OIDC_CLIENT_ID}"
+    portal_url: "${HERMES_DASHBOARD_OIDC_ISSUER}"
+OAUTHEOF
+)
   public_url: "${PUBLIC_URL}"
 mcp_servers: {}
 CFGEOF
