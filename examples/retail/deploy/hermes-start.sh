@@ -51,12 +51,6 @@ model:
   api_key: "proxy-managed"
 dashboard:
   theme: redhat
-$([ -n "${HERMES_DASHBOARD_OIDC_ISSUER:-}" ] && cat << OAUTHEOF
-  oauth:
-    client_id: "${HERMES_DASHBOARD_OIDC_CLIENT_ID}"
-    portal_url: "${HERMES_DASHBOARD_OIDC_ISSUER}"
-OAUTHEOF
-)
   public_url: "${PUBLIC_URL}"
 mcp_servers:
   retail-${pdept}:
@@ -72,12 +66,6 @@ model:
   api_key: "proxy-managed"
 dashboard:
   theme: redhat
-$([ -n "${HERMES_DASHBOARD_OIDC_ISSUER:-}" ] && cat << OAUTHEOF
-  oauth:
-    client_id: "${HERMES_DASHBOARD_OIDC_CLIENT_ID}"
-    portal_url: "${HERMES_DASHBOARD_OIDC_ISSUER}"
-OAUTHEOF
-)
   public_url: "${PUBLIC_URL}"
 mcp_servers: {}
 CFGEOF
@@ -105,6 +93,21 @@ for i in $(seq 1 30); do
   sleep 1
 done
 sleep 2
+
+# Wait for outbound network to be ready. The sandbox supervisor's
+# transparent proxy needs a few seconds after the relay bridge is
+# established before outbound HTTP connections work reliably.
+# Without this, the MCP proxy's initial connection fails with 503,
+# which permanently kills the hermes MCP event loop.
+for i in $(seq 1 30); do
+  if curl -sf --max-time 3 "${MCP_UPSTREAM_URL}/mcp" -X POST \
+    -H "Content-Type: application/json" \
+    -d '{"jsonrpc":"2.0","method":"ping","id":0}' >/dev/null 2>&1; then
+    echo "MCP upstream reachable"
+    break
+  fi
+  sleep 2
+done
 
 # Strip all credentials from env before starting the gateway.
 # The dashboard holds them in memory; the agent must never see them.
