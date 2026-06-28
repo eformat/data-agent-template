@@ -2,6 +2,7 @@ pydantic>=2.0
 pyyaml>=6.0
 click>=8.0
 duckdb>=1.0
+rac-core>=2026.6.5
 
 [agent]
 chainlit>=2.6
