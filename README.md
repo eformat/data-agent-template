@@ -2,13 +2,13 @@
 
 A pip-installable Python framework for building methodology-aware data agents on Trino/Iceberg with structured reasoning, MLflow tracing, and 7-dimension evaluation.
 
-Extracted from two production agents (MLB baseball and NNDSS Australian disease surveillance). Domain projects are thin — import shared code, configure via `agent-config.yaml`.
+Extracted from three production agents (MLB baseball, NNDSS Australian disease surveillance, and Acme Retail enterprise authorization). Domain projects are thin — import shared code, configure via `agent-config.yaml`.
 
 ## Quick Start
 
 ```bash
 # Create venv and install
-python3.12 -m venv venv && source venv/bin/activate
+python3.12 -m venv .venv && source .venv/bin/activate
 pip install -e ".[all]"
 
 # Scaffold a new domain agent
@@ -84,8 +84,70 @@ my-domain/
 │   ├── conftest.py                      # Auto-registered fixtures
 │   └── test_tools.py
 │
-└── data/                                # Your parquet/CSV files
+├── data/                                # Your parquet/CSV files
+│
+└── rac/                                 # Requirements and decisions (RAC)
+    ├── requirements/                    # What the system must do
+    └── decisions/                       # How we decided to build it
 ```
+
+## Requirements and Decisions (RAC)
+
+This project uses [RAC (Requirements As Code)](https://github.com/itsthelore/rac-core) to record settled requirements and architectural decisions as validated Markdown artifacts. The corpus lives in `rac/` and is the source of truth for what's been decided.
+
+### Corpus overview
+
+```bash
+rac review rac/              # health score, findings, relationships
+rac index rac/               # list all artifacts with IDs and types
+rac find "topic" rac/        # search by keyword
+```
+
+### Settled decisions
+
+Accepted decisions are listed in `CLAUDE.md` under "Settled decisions (RAC)". These are binding — do not re-open or contradict them without creating a new decision that explicitly supersedes the old one.
+
+To read the full text of a decision:
+
+```bash
+rac resolve RAC-KW86NFEZ9KFT rac/     # look up by ID
+```
+
+Or via the lore MCP tools if using Claude Code:
+
+```
+find_decisions("topic")     # find decisions relevant to a topic
+get_artifact("RAC-...")     # read the full decision text
+```
+
+### Capturing new decisions
+
+When work surfaces a new architectural choice or requirement:
+
+```bash
+# Scaffold a new artifact (mints an ID, writes the template)
+rac new decision rac/decisions/my-decision.md
+rac new requirement rac/requirements/my-requirement.md
+
+# Edit the file, replacing TODO placeholders with real content
+# Requirements use BCP 14 normative keywords: MUST, SHOULD, MAY
+
+# Validate
+rac validate rac/
+rac relationships rac/ --validate
+
+# Review the full corpus
+rac review rac/
+```
+
+If using Claude Code, the `/rac-capture` skill provides an interactive interview flow for recording decisions, and `/rac-review` audits the corpus.
+
+### Current corpus
+
+| Type | Count | Coverage |
+|------|-------|----------|
+| Requirements | 11 | DomainConfig, agent lifecycle, read-only SQL, permissions, dev mode, MCP server, MLflow, eval pipeline, methodology, deploy/scaffold, data platform |
+| Decisions | 11 | One accepted decision per requirement, all bidirectionally linked |
 
 ## CLI Commands
 
@@ -228,16 +290,22 @@ src/data_agent_core/
 └── scaffold/     — Project generator (data-agent init)
 ```
 
-## Three Innovations
+## Key Innovations
 
 1. **MCP Enrichment Contract** — every tool response includes methodology, geographic_context, supported/unsupported conclusions, caveats, data_freshness, citation
-2. **Reasoning Rubric + Deterministic Confidence** — 6-step `<reasoning>` block, confidence cards (HIGH/MODERATE/LOW) computed from tool trace, not LLM-generated
+2. **Reasoning Rubric + Deterministic Confidence** — 7-field `<reasoning>` block, confidence cards (HIGH/MODERATE/LOW) computed from tool trace, not LLM-generated
 3. **7-Dimension Capability Evaluation** — domain-agnostic scoring framework with LLM-as-judge
+4. **Requirements As Code (RAC)** — settled decisions and requirements tracked as validated Markdown artifacts in `rac/`, enforced by `rac validate` and surfaced via lore MCP tools
 
 ## Examples
 
 - `examples/nndss/` — Australian disease surveillance (influenza, meningococcal, pneumococcal, salmonellosis)
 - `examples/mlb/` — Major League Baseball (batting, pitching, fielding, weather)
+- `examples/retail/` — Acme Retail Corp finance department (revenue, expenses, margins, forecasts)
+
+The retail example demonstrates a multi-department enterprise deployment with per-department Trino catalogs (finance, sales, ops), Nessie branch-per-catalog, SpiceDB per-user authorization, and zero-trust MCP servers via Kagenti AuthBridge. The full deployment (ArgoCD app-of-apps, Trino, Nessie, MinIO, SpiceDB, Keycloak) is in a separate repo:
+
+- **Full retail CTF deployment:** [eformat/data-agent-ctf](https://github.com/eformat/data-agent-ctf)
 
 ## Documentation
 

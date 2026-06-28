@@ -1,0 +1,183 @@
+# Retail Enterprise Data Agent — Acme Retail Corp
+#
+# Multi-department retail domain with finance, sales, and operations datasets
+# deployed on Trino/Iceberg with per-department Nessie catalog branches.
+#
+# Full deployment (Trino, Nessie, MinIO, SpiceDB, ArgoCD app-of-apps):
+#   https://github.com/eformat/data-agent-ctf
+#
+# In production, each department runs as a separate MCP server with its own
+# agent-config.yaml (finance-only, sales-only, ops-only). This example
+# shows the finance department configuration.
+
+domain:
+  name: retail-finance
+  display_name: "Retail Finance Agent"
+  description: "Finance department data agent for Acme Retail Corp — revenue, expenses, margins, and forecasts via a Trino Iceberg lakehouse"
+
+data:
+  trino_catalog: finance
+  trino_schema: analytics
+
+  datasets:
+    - name: revenue
+      formal_name: "Monthly Revenue"
+      category: financial
+      years_available: "2021-2025"
+      description: "Monthly revenue by region and product line"
+      key_features:
+        - "5 regions: Northeast, Southeast, Midwest, West, International"
+        - "5 product lines: Apparel, Electronics, Home, Grocery, Sporting"
+        - "All monetary values in USD thousands"
+      limitations:
+        - "Region-level only — no store or zip code granularity"
+        - "Monthly close cycle — data available T+5 business days"
+
+    - name: expenses
+      formal_name: "Monthly Expenses"
+      category: financial
+      years_available: "2021-2025"
+      description: "Monthly departmental expenses by category"
+      key_features:
+        - "5 departments: Operations, Sales, Finance, Marketing, Technology"
+        - "5 categories: payroll, marketing, logistics, technology, facilities"
+      limitations:
+        - "By department, not by region"
+        - "Accrual accounting basis (SAP S/4HANA)"
+
+    - name: margins
+      formal_name: "Quarterly Gross Margins"
+      category: financial
+      years_available: "2021-2025"
+      description: "Quarterly gross margin percentages by product line"
+      key_features:
+        - "Revenue, COGS, and margin percentage per product line per quarter"
+      limitations:
+        - "Quarterly granularity only"
+        - "Gross margin, not operating or net margin"
+
+    - name: forecasts
+      formal_name: "Quarterly Forecasts"
+      category: financial
+      years_available: "2021-2025"
+      description: "Quarterly revenue targets vs actuals by region"
+      key_features:
+        - "Target, actual, and variance percentage"
+        - "Per region per quarter"
+      limitations:
+        - "Historical targets only — not forward-looking projections"
+
+  methodology:
+    revenue:
+      surveillance_type: "ERP transaction data"
+      collection_design: "Automated extraction from SAP S/4HANA"
+      case_definition: "Recognized revenue per ASC 606"
+      instruments: "SAP S/4HANA ERP, monthly close process"
+      population_coverage: "All Acme Retail Corp revenue transactions"
+      known_biases:
+        - "Accrual basis — timing differences with cash receipts"
+      geographic_resolution: "Region (5 regions)"
+      temporal_resolution: "Monthly"
+      update_frequency: "Monthly, T+5 business days after close"
+
+    expenses:
+      surveillance_type: "ERP transaction data"
+      collection_design: "Automated extraction from SAP S/4HANA"
+      case_definition: "Recognized expenses per accrual accounting"
+      instruments: "SAP S/4HANA ERP, departmental cost centers"
+      population_coverage: "All Acme Retail Corp expense transactions"
+      known_biases:
+        - "Department allocation rules may shift costs between categories"
+      geographic_resolution: "Department level (not regional)"
+      temporal_resolution: "Monthly"
+      update_frequency: "Monthly, T+5 business days after close"
+
+    margins:
+      surveillance_type: "Derived financial metric"
+      collection_design: "Computed from revenue and COGS per product line"
+      case_definition: "Gross margin = (Revenue - COGS) / Revenue"
+      instruments: "SAP S/4HANA, product line P&L"
+      population_coverage: "All product lines"
+      known_biases:
+        - "COGS allocation methodology affects margin by product line"
+      geographic_resolution: "Product line (not regional)"
+      temporal_resolution: "Quarterly"
+      update_frequency: "Quarterly, after earnings close"
+
+    forecasts:
+      surveillance_type: "Planning data"
+      collection_design: "Annual budget process with quarterly re-forecasts"
+      case_definition: "Board-approved revenue targets vs recognized actuals"
+      instruments: "Anaplan planning tool, SAP actuals"
+      population_coverage: "All regions"
+      known_biases:
+        - "Targets set annually — may not reflect mid-year market shifts"
+      geographic_resolution: "Region (5 regions)"
+      temporal_resolution: "Quarterly"
+      update_frequency: "Quarterly"
+
+  aliases:
+    income: revenue
+    costs: expenses
+    spending: expenses
+    opex: expenses
+    profit margin: margins
+    budget: forecasts
+    targets: forecasts
+
+enrichment:
+  geographic_resolution: "Region level (Northeast, Southeast, Midwest, West, International)"
+  unsupported_conclusions:
+    - "Causal claims (correlation is not causation)"
+    - "Forward-looking financial projections"
+    - "Investment or financial advice"
+    - "Store-level or zip code analysis"
+  caveats:
+    - "All figures in USD thousands"
+    - "Accrual accounting basis — timing differences with cash"
+    - "Monthly close cycle — data available T+5 business days"
+
+mcp:
+  query_tool_docstring: >
+    Execute a read-only SQL query against the Acme Retail Finance Iceberg lakehouse.
+    Tables: finance.analytics.revenue (year, month, region, product_line, revenue_usd_k),
+    finance.analytics.expenses (year, month, department, category, amount_usd_k),
+    finance.analytics.margins (year, quarter, product_line, revenue_usd_k, cogs_usd_k, gross_margin_pct),
+    finance.analytics.forecasts (year, quarter, region, target_usd_k, actual_usd_k, variance_pct).
+    Only SELECT queries allowed.
+
+mlflow:
+  experiment_name: retail-finance-data-agent
+  prompt_name: retail-finance-agent.system
+  span_name: retail_finance_agent
+
+deployment:
+  namespace: openshell
+  model_name: kimi-k2-6
+  model_endpoint: http://maas.apps.ocp.cloud.rhai-tmm.dev/prelude-maas/kimi-k2-6/v1
+  trino_host: trino
+  trino_port: 8080
+  mlflow_tracking_uri: https://mlflow.redhat-ods-applications.svc:8443
+  s3_endpoint: http://minio:9000
+  s3_bucket: warehouse
+
+eval:
+  seed_questions:
+    - question: "What was total revenue in 2024?"
+      expected_tools: [query_trino]
+      expected_keywords: [revenue, "2024"]
+      question_type: data_retrieval
+    - question: "Which product line had the highest gross margin in Q4 2024?"
+      expected_tools: [query_trino, get_methodology]
+      expected_keywords: [margin, product]
+      question_type: analytical
+    - question: "How did actual revenue compare to targets across regions in 2024?"
+      expected_tools: [query_trino]
+      expected_keywords: [target, actual, variance]
+      question_type: comparative
+    - question: "What are the main expense categories and their trends?"
+      expected_tools: [query_trino, describe_datasets]
+      expected_keywords: [expenses, category]
+      question_type: exploratory
+
+system_prompt_file: system_prompt.md
