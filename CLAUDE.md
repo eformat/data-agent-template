@@ -8,8 +8,8 @@ A pip-installable Python framework (`data-agent-core`) for building methodology-
 
 ```bash
 # Create venv and install
-python3.12 -m venv venv
-source venv/bin/activate
+python3.12 -m venv .venv
+source .venv/bin/activate
 pip install -e ".[all]"
 
 # Run tests (38 pass)
@@ -84,11 +84,11 @@ src/data_agent_core/
 make test  # 55 tests, all pass
 ```
 
-## MaaS Endpoints (as of 2026-05-29)
+## MaaS Endpoints
 
 - `kimi-k2-6` — confirmed working
 - `gemma4` — confirmed working
-- `qwen36-27b` — was down (503)
+- `qwen36-27b` — confirmed working
 
 <!-- BEGIN RAC MANAGED BLOCK (digest: f1dab3f6f52a4bf2baebaec440454253f443c7b3698568ede0949f1d518dcc7c) -->
 <!-- Managed by `rac export --agent-rules`. Edit decisions in rac/, not here; content outside this block is preserved. -->
