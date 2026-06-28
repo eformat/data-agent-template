@@ -90,7 +90,7 @@ make test  # 55 tests, all pass
 - `gemma4` — confirmed working
 - `qwen36-27b` — confirmed working
 
-<!-- BEGIN RAC MANAGED BLOCK (digest: f1dab3f6f52a4bf2baebaec440454253f443c7b3698568ede0949f1d518dcc7c) -->
+<!-- BEGIN RAC MANAGED BLOCK (digest: c70e40ce6d5895a09bf6c490af812d37217be45019fb3d59f7239ae8af76d338) -->
 <!-- Managed by `rac export --agent-rules`. Edit decisions in rac/, not here; content outside this block is preserved. -->
 ## Settled decisions (RAC)
 
@@ -106,4 +106,5 @@ These decisions are already accepted. Do not re-open or contradict them; ask the
 - **RAC-KW86NGT6SKMT** — KFP Eval Pipeline with 4 Deterministic + 7 LLM Judge Scorers _(Product)_
 - **RAC-KW86NH0JB3MB** — Config-Driven Methodology Metadata with Alias Resolution _(Product)_
 - **RAC-KW86NH6F62TY** — Scaffold Generator with Kustomize Deploy Templates from DomainConfig _(Technical)_
+- **RAC-KW89BZAQ7A1Y** — GitOps Data Platform with ArgoCD App-of-Apps, age/SOPS Secrets, and Sync-Wave Orchestration _(Architecture)_
 <!-- END RAC MANAGED BLOCK -->
