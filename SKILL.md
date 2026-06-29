@@ -16,7 +16,10 @@ Scaffolds a complete data agent project from a domain description and datasets. 
 ## Prerequisites
 
 - Python 3.12+
-- `pip install data-agent-core[all]`
+- `data-agent-core` installed from source (not published to PyPI):
+  ```bash
+  pip install -e "path/to/data-agent-template[all]"
+  ```
 - For deployment: KUBECONFIG, OpenAI-compatible model endpoint
 
 ## Before you build — check settled decisions
