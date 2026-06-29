@@ -20,6 +20,7 @@ Developers building domain agents need to iterate locally without access to a Tr
 - [REQ-007] Auth in dev mode MUST default to admin/admin (no JWT, no external auth provider).
 - [REQ-008] The `--trino-live` CLI flag MUST switch dev mode to connect to a real Trino cluster and SpiceDB instance while keeping the dev Chainlit UI.
 - [REQ-009] The DuckDB query tool MUST return the same JSON response shape as the Trino tool, with an additional caveat: "Results are from sample data (dev mode)."
+- [REQ-010] Every new domain agent MUST register a sample data loader via `register_sample_data_loader()` that creates tables matching the domain's datasets and populates them with synthetic data. The NNDSS fallback loader MUST NOT be relied upon for non-NNDSS domains — it produces schema-mismatched tables that confuse the LLM.
 
 ## Success Metrics
 

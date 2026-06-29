@@ -67,6 +67,7 @@ def create_dev_app(
         from data_agent_core.tools.spicedb import create_mock_permission_tool
         from data_agent_core.testing.sample_data import load_sample_data
         import data_agent_core.testing.retail_sample_data  # noqa: F401 — registers loaders
+        import data_agent_core.testing.repo_sample_data  # noqa: F401 — registers loaders
 
         query_trino_tool, duckdb_conn = create_query_duckdb_tool(config, db_path)
         load_sample_data(duckdb_conn, config)

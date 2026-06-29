@@ -58,13 +58,36 @@ Edit `my-domain/agent-config.yaml`:
 - Write `system_prompt.md` with domain-specific reasoning examples
 - Add seed questions for evaluation
 
-### 3. Validate
+### 3. Register sample data for dev mode
+Dev mode uses DuckDB with synthetic data. Without a domain-specific loader, it falls back to NNDSS sample data (notifications/population) which won't match your schema. Create a sample data loader in `data-agent-core`:
+
+```python
+# src/data_agent_core/testing/my_domain_sample_data.py
+from data_agent_core.testing.sample_data import register_sample_data_loader
+
+def _load_my_domain_data(conn, config):
+    qs = f"{config.trino_catalog}.{config.trino_schema}"
+    conn.execute(f'CREATE SCHEMA IF NOT EXISTS "{qs}"')
+    # CREATE TABLE and INSERT for each dataset in your config
+    ...
+
+register_sample_data_loader("my-domain", _load_my_domain_data)
+```
+
+Then import it in `src/data_agent_core/agent/dev.py` alongside the other loaders:
+```python
+import data_agent_core.testing.my_domain_sample_data  # noqa: F401
+```
+
+Existing loaders: `retail_sample_data.py` (retail), `repo_sample_data.py` (repo trading), `sample_data.py` (NNDSS fallback).
+
+### 4. Validate
 ```bash
 cd my-domain
 data-agent validate
 ```
 
-### 4. Develop locally
+### 5. Develop locally
 ```bash
 data-agent dev
 ```

@@ -62,6 +62,7 @@ src/data_agent_core/scaffold/generate.py
 src/data_agent_core/testing/__init__.py
 src/data_agent_core/testing/fixtures.py
 src/data_agent_core/testing/plugin.py
+src/data_agent_core/testing/repo_sample_data.py
 src/data_agent_core/testing/retail_sample_data.py
 src/data_agent_core/testing/sample_data.py
 src/data_agent_core/tools/__init__.py
